@@ -38,24 +38,41 @@ python finetune.py --epochs 3 --out adapter
 python app.py --adapter adapter
 ```
 
+## Viden (RAG) — så han svarer korrekt, ikke bare stemningsfuldt
+
+Hent en dansk viden-base om nordisk mytologi og sagaer (fra Wikipedia) én gang:
+```bash
+python scripts/fetch_knowledge.py     # -> data/knowledge.jsonl (~50 artikler)
+```
+Så slår skjalden op i den (BM25, ren Python — ingen embedding-model) og **grunder sine
+svar i rigtige overleveringer** i stedet for at gætte. Uden basen kører han fint — bare
+ustyret af fakta.
+
 ## Ærligt om hvad det er
 - En **persona/rollespil**-skjald, ikke en historiker: han taler smukt og i-rolle, men
   finder på og husker ikke saga-fakta præcist. "Din egen saga" er stil + hukommelse.
 - **"Han lærer dig at kende" = lokal hukommelse (genkald)**, ikke vægt-træning på enheden.
   Det er den stabile, offline måde — og fundamentet vi senere porterer til en telefon-app.
 - Arkaisk-farvet **dansk**, ikke flydende oldnordisk (ingen model behersker oldnordisk samtale).
+- **RAG gør ham mere korrekt, ikke alvidende.** Med viden-basen henter han rigtige passager
+  og retter mange fejl (Fenrir er en ulv, Yggdrasil en ask) — men nøgleord-opslag rammer
+  ikke altid den præcise passage, så nogle svar er stadig gæt. Embeddings ville være næste niveau.
 
 ## Struktur
 ```text
 Hirdskjald/
-├── app.py                # Flask-server + web-UI
+├── start.bat              # dobbeltklik-launcher (Windows)
+├── app.py                 # Flask-server + web-UI
 ├── skald/
-│   ├── model.py          # SnakModel-7B i 4-bit (+ valgfri LoRA), generering
-│   ├── persona.py        # system-prompt + prompt-byggere (snak / saga / min saga)
-│   └── memory.py         # lokal JSON-hukommelse (navn, bedrifter, historik)
-├── templates/index.html  # UI (Snak / Fortæl / Min saga / Hukommelse)
-├── finetune.py           # valgfrit 4-bit QLoRA-finpuds
-└── data/skald_sft.jsonl  # skjald-SFT-par (til finpuds)
+│   ├── model.py           # SnakModel-7B i 4-bit (+ valgfri LoRA), generering
+│   ├── persona.py         # system-prompt, persona-anker + prompt-byggere
+│   ├── memory.py          # lokal JSON-hukommelse (navn, bedrifter, historik)
+│   └── knowledge.py       # BM25-opslag i viden-basen (RAG)
+├── templates/index.html   # UI (Snak / Fortæl / Min saga / Hukommelse)
+├── scripts/
+│   └── fetch_knowledge.py # hent dansk viden-base (Wikipedia) -> data/knowledge.jsonl
+├── finetune.py            # valgfrit 4-bit QLoRA-finpuds
+└── data/skald_sft.jsonl   # skjald-SFT-par (til finpuds)
 ```
 
 ## Licens

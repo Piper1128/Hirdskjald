@@ -17,6 +17,7 @@ from flask import Flask, request, jsonify, render_template, send_from_directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from skald.model import Skald
 from skald.memory import Memory
+from skald.knowledge import Knowledge
 from skald import persona
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -25,6 +26,7 @@ if hasattr(sys.stdout, "reconfigure"):
 HERE = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__)
 mem = Memory(os.path.join(HERE, "memory.json"))
+knowledge = Knowledge(os.path.join(HERE, "data", "knowledge.jsonl"))
 skald = None  # indlæses ved opstart (main)
 
 # "jeg hedder X" / "mit navn er X" / "kald mig X"
@@ -49,8 +51,16 @@ def chat():
     text = (request.get_json(silent=True) or {}).get("text", "").strip()
     if not text:
         return jsonify(error="tom besked"), 400
-    msgs = persona.chat_messages(text, mem.context(), mem.recent())
-    svar = skald.reply(msgs, max_new_tokens=384)
+    # RAG: hent relevante sande overleveringer og grund svaret i dem
+    passages = knowledge.retrieve(text, k=4) if knowledge else []
+    if passages:
+        msgs = persona.grounded_chat_messages(
+            text, [c for _, c in passages], mem.context(), mem.recent())
+    else:
+        msgs = persona.chat_messages(text, mem.context(), mem.recent())
+    # Lavere temperatur når vi grunder i fakta -> mindre digterisk afdrift
+    svar = skald.reply(msgs, max_new_tokens=384,
+                       temperature=0.4 if passages else 0.75)
     mem.add_turn(text, svar)
 
     # Lær nyt om herren af hans egne ord (navne-fangst + LLM-udtræk)
@@ -71,7 +81,8 @@ def chat():
             mem.add_fakta(f)
             if len(mem.data["fakta"]) > n:
                 learned.append(f)
-    return jsonify(svar=svar, learned=learned)
+    return jsonify(svar=svar, learned=learned,
+                   kilder=[c["title"] for _, c in passages])
 
 
 @app.route("/api/saga", methods=["POST"])
@@ -119,6 +130,8 @@ def main():
     args = ap.parse_args()
     print("Vækker Hirdskjald (indlæser SnakModel-7B i 4-bit)... det tager et øjeblik.")
     skald = Skald(adapter_dir=args.adapter)
+    if knowledge:
+        print(f"Viden-base: {knowledge.N} stykker klar (RAG aktiv).")
     url = f"http://127.0.0.1:{args.port}"
     print(f"\nSkjalden er vågen. Åbn  {url}\n")
     if not args.no_browser:

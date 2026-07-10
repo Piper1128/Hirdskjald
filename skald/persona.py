@@ -56,6 +56,26 @@ def chat_messages(user_text, memory_context="", history=None):
     return msgs
 
 
+def grounded_chat_messages(user_text, passages, memory_context="", history=None):
+    """Som chat_messages, men med de hentede vidensstykker (RAG) lige før spørgsmålet.
+
+    At lægge kilderne umiddelbart før spørgsmålet grounder svaret langt bedre end
+    at gemme dem i system-prompten (modellen lytter mest til det nære).
+    """
+    msgs = [{"role": "system", "content": _system(memory_context)}]
+    msgs.extend(_ANCHOR)
+    for turn in (history or []):
+        msgs.append({"role": "user", "content": turn["user"]})
+        msgs.append({"role": "assistant", "content": turn["skald"]})
+    ref = ("Sande overleveringer — svar KUN ud fra disse. Følg dem, også hvis de modsiger "
+           "hvad du selv tror, og find intet på ud over dem; men kvæd svaret i din egen "
+           "skjald-stemme:\n")
+    for p in passages:
+        ref += "— " + p["text"].strip()[:600] + "\n"
+    msgs.append({"role": "user", "content": ref + "\nSpørgsmål: " + user_text})
+    return msgs
+
+
 def saga_messages(emne, memory_context=""):
     """Bed skjalden fortælle en HEL, afgrænset saga om et emne."""
     bid = ("Kvæd en hel, afsluttet saga" + (f" om {emne}" if emne else "") +
