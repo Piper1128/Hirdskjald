@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hirdskjald</title>
+<link rel="icon" href="/favicon.ico">
 <style>
   :root{
     --bg:#14100c; --panel:#1e1812; --ink:#ece3d4; --dim:#a99b84;
@@ -42,6 +43,9 @@
     border-radius:999px;padding:4px 11px;margin:4px 4px 0 0;font-size:14px}
   h3{color:var(--gold);margin:2px 0 6px;font-weight:600;letter-spacing:.04em}
   .thinking{color:var(--gold);font-style:italic}
+  .chip .x{cursor:pointer;color:#d08a6a;margin-left:7px;font-weight:700}
+  .chip .x:hover{color:#ef6b3a}
+  .learned{font-size:13px;color:var(--dim);font-style:italic;margin:2px 6px 12px}
 </style>
 </head>
 <body>
@@ -145,6 +149,11 @@ async function sendChat(){
   try{ const j=await post('/api/chat',{text:t});
     wait.querySelector('.body').classList.remove('thinking');
     wait.querySelector('.body').textContent=j.svar||('('+(j.error||'tavshed')+')');
+    if(j.learned && j.learned.length){
+      const note=document.createElement('div'); note.className='learned';
+      note.textContent='🖉 Skjalden husker nu: '+j.learned.join('; ');
+      $('#log').appendChild(note);
+    }
   }catch(e){ wait.querySelector('.body').textContent='(skjalden tav — fejl)'; }
   $('#chatSend').disabled=false; $('#log').scrollTop=$('#log').scrollHeight;
 }
@@ -162,14 +171,25 @@ $('#minGo').onclick=async()=>{
   const j=await post('/api/minsaga',{}); $('#minOut').textContent=j.svar||'(tavshed)'; $('#minGo').disabled=false;
 };
 // --- Hukommelse ---
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function chip(icon,text,type){
+  const t=esc(text);
+  return '<span class="chip">'+icon+' '+t+' <span class="x" title="glem" data-type="'+type+'" data-val="'+t+'">×</span></span>';
+}
 async function loadMem(){
-  const r=await fetch('/api/memory'); const j=await r.json();
+  const j=await (await fetch('/api/memory')).json();
   $('#navnIn').value=j.navn||'';
-  let h=''; if(j.navn) h+='<span class="chip">🛡 '+j.navn+'</span>';
-  (j.bedrifter||[]).forEach(b=>h+='<span class="chip">⚔ '+b+'</span>');
-  (j.fakta||[]).forEach(f=>h+='<span class="chip">• '+f+'</span>');
+  let h=''; if(j.navn) h+=chip('🛡',j.navn,'navn');
+  (j.bedrifter||[]).forEach(b=>h+=chip('⚔',b,'bedrift'));
+  (j.fakta||[]).forEach(f=>h+=chip('•',f,'fakta'));
   $('#memView').innerHTML=h||'<span class="hint">Skjalden ved endnu intet om dig.</span>';
 }
+$('#memView').addEventListener('click',async e=>{
+  const x=e.target.closest('.x'); if(!x) return;
+  const type=x.dataset.type, val=x.dataset.val;
+  const body = type==='navn' ? {navn:''} : type==='bedrift' ? {remove_bedrift:val} : {remove_fakta:val};
+  await post('/api/memory',body); loadMem();
+});
 $('#navnGo').onclick=async()=>{await post('/api/memory',{navn:$('#navnIn').value.trim()});loadMem();};
 $('#bedriftGo').onclick=async()=>{await post('/api/memory',{bedrift:$('#bedriftIn').value.trim()});$('#bedriftIn').value='';loadMem();};
 $('#faktaGo').onclick=async()=>{await post('/api/memory',{fakta:$('#faktaIn').value.trim()});$('#faktaIn').value='';loadMem();};
