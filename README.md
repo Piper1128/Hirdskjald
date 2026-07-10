@@ -12,11 +12,18 @@ Hjernen er [SnakModel-7B-Instruct](https://huggingface.co/NLPnorth/snakmodel-7b-
 > LoRA-finetuner en lille model til skjald-persona; **Hirdskjald** samler oplevelsen til
 > ét program på en dansk-stærk 7B — med hukommelse og din-egen-saga.
 
-## Fire ting
-- **Snak** — samtale med skjalden (han husker dig mellem sessioner)
-- **Fortæl** — bed om en saga om hvad som helst
-- **Min saga** — skjalden digter en saga om *dig* ud fra dine bedrifter
-- **Hukommelse** — navn, bedrifter og fakta gemt lokalt (`memory.json`), flettet ind i alt
+## Ét vindue — sig hvad du vil
+
+Ingen faner: du styrer alt gennem samtalen (ligesom en rigtig assistent), og skjalden
+forstår hvad du beder om:
+- **Snak / spørg** — samtale om guder og sagaer, grundet i rigtige kilder
+- **"Fortæl en saga om Ragnarok"** — han kvæder en saga (og viser hvilken saga)
+- **"Digt en saga om mig"** — din egen saga ud fra det han ved om dig
+- **"Lav en saga af vores samtale"** — hele jeres snak vævet til ét kvad
+- **"Glem alt om mig"** — nulstiller hukommelsen
+
+Han **lærer om dig undervejs** (navn, bedrifter) og husker det lokalt i `memory.json`.
+Klikbare forslag i vinduet viser hvad han kan.
 
 ## Kør det
 

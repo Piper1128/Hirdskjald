@@ -30,11 +30,22 @@ mem = Memory(os.path.join(HERE, "memory.json"))
 knowledge = None  # bygges ved opstart (main) med semantiske embeddings
 skald = None  # indlæses ved opstart (main)
 
-# "jeg hedder X" / "mit navn er X" / "kald mig X"
+# "jeg hedder X" / "mit navn er X" / "kald mig X" (navnet skal være stort-begyndende,
+# så vi ikke opsluger " og jeg ..." — derfor case-sensitivt navn, kun triggeren tåler stort/lille)
 _NAME_RE = re.compile(
-    r"\b(?:jeg hedder|mit navn er|kald mig)\s+"
-    r"([^\s,.!?]{2,25}(?:\s+[A-ZÆØÅ][^\s,.!?]{1,24}){0,2})",
+    r"\b(?:[Jj]eg hedder|[Mm]it navn er|[Kk]ald mig)\s+"
+    r"([A-ZÆØÅ][^\s,.!?]{1,24}(?:\s+[A-ZÆØÅ][^\s,.!?]{1,24}){0,2})")
+
+# Intent-genkendelse til ét-vindues styring (siger man hvad man vil, gør skjalden det)
+_FORGET_RE = re.compile(r"\bglem alt\b|\bglem mig\b|start forfra|nulstil", re.IGNORECASE)
+_CONV_SAGA_RE = re.compile(
+    r"vores samtale|vores snak|det vi (har )?talt|denne samtale|vores stund|af (vores|denne) snak",
     re.IGNORECASE)
+_SELF_SAGA_RE = re.compile(r"\bom mig\b|mig selv|min (egen )?saga|mit eftermæle", re.IGNORECASE)
+_SAGA_RE = re.compile(
+    r"\ben saga\b|\bet kvad\b|\bet vers\b|\bkvæd\b|\bdigt\b|fortæl .{0,15}\bsaga\b|lav .{0,15}\bsaga\b",
+    re.IGNORECASE)
+_EMNE_RE = re.compile(r"\b(?:saga|kvad|vers|kvæd|digt|fortæl)\b.*?\b(?:om|over)\s+(.+)", re.IGNORECASE)
 
 
 @app.route("/")
@@ -52,25 +63,59 @@ def chat():
     text = (request.get_json(silent=True) or {}).get("text", "").strip()
     if not text:
         return jsonify(error="tom besked"), 400
-    # RAG: hent relevante sande overleveringer og grund svaret i dem
+
+    # --- Intent-styring: skjalden gør det du beder om ---
+    if _FORGET_RE.search(text):
+        mem.clear()
+        return jsonify(svar="Det er glemt, herre. Jeg kender dig ikke mere — sæt dig og fortæl på ny.")
+
+    saga_req = bool(_SAGA_RE.search(text))
+
+    if saga_req and _CONV_SAGA_RE.search(text):          # saga af vores samtale
+        hist = mem.data["historik"]
+        if not hist:
+            return jsonify(svar="Vi har endnu ikke talt sammen, herre. Fortæl mig om dig, "
+                                "så væver jeg din saga af vore ord.")
+        msgs = persona.conversation_saga_messages(
+            mem.data["navn"], hist, mem.data["bedrifter"], mem.context())
+        svar = skald.reply(msgs, max_new_tokens=900, temperature=0.85)
+        mem.add_turn(text, svar)
+        return jsonify(svar=svar)
+
+    if saga_req and _SELF_SAGA_RE.search(text):          # din egen saga
+        msgs = persona.personal_saga_messages(
+            mem.data["navn"], mem.data["bedrifter"], mem.context())
+        svar = skald.reply(msgs, max_new_tokens=900)
+        mem.add_turn(text, svar)
+        return jsonify(svar=svar)
+
+    if saga_req:                                          # saga om et emne
+        m = _EMNE_RE.search(text)
+        emne = m.group(1).strip(" .!?") if m else ""
+        passages = knowledge.retrieve(emne or text, k=3) if knowledge else []
+        if passages:
+            msgs = persona.grounded_saga_messages(emne or text, [c for _, c in passages])
+        else:
+            msgs = persona.saga_messages(emne)
+        svar = skald.reply(msgs, max_new_tokens=900, temperature=0.8)
+        mem.add_turn(text, svar)
+        return jsonify(svar=svar, kilder=[c["title"] for _, c in passages])
+
+    # --- Almindelig samtale (default): RAG-grundet + lærer om dig ---
     passages = knowledge.retrieve(text, k=4) if knowledge else []
     if passages:
         msgs = persona.grounded_chat_messages(
             text, [c for _, c in passages], mem.context(), mem.recent(10))
     else:
         msgs = persona.chat_messages(text, mem.context(), mem.recent(10))
-    # Lavere temperatur når vi grunder i fakta -> mindre digterisk afdrift
-    svar = skald.reply(msgs, max_new_tokens=384,
-                       temperature=0.4 if passages else 0.75)
+    svar = skald.reply(msgs, max_new_tokens=384, temperature=0.4 if passages else 0.75)
     mem.add_turn(text, svar)
 
-    # Lær nyt om herren af hans egne ord (navne-fangst + LLM-udtræk)
     learned = []
     m = _NAME_RE.search(text)
     if m and not mem.data["navn"]:
         mem.set_navn(m.group(1).strip(" .,!?"))
         learned.append("dit navn: " + mem.data["navn"])
-    # Udtræk KUN fra udsagn, ikke fra rene spørgsmål (undgår forurening)
     if not text.rstrip().endswith("?"):
         for f in skald.extract_facts(text):
             mm = re.match(r"\s*(?:navn|tilnavn|hedder)\s*[:\- ]\s*(.+)", f, re.IGNORECASE)
@@ -82,8 +127,7 @@ def chat():
             mem.add_fakta(f)
             if len(mem.data["fakta"]) > n:
                 learned.append(f)
-    return jsonify(svar=svar, learned=learned,
-                   kilder=[c["title"] for _, c in passages])
+    return jsonify(svar=svar, learned=learned, kilder=[c["title"] for _, c in passages])
 
 
 @app.route("/api/saga", methods=["POST"])
