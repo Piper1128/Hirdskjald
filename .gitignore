@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Trænings-output (LoRA-adaptere)
+adapter/
+runs/
+*.safetensors
+*.pt
+
+# Personlig hukommelse (din egen data — hører ikke i repo'et)
+memory.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

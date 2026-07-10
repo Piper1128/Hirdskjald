@@ -1,0 +1,7 @@
+# torch med CUDA installeres separat, matchende din GPU/driver, fx:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu126
+transformers>=5.0
+peft>=0.19
+accelerate>=1.0
+bitsandbytes>=0.46
+flask>=3.0
