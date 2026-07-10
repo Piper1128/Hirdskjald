@@ -31,6 +31,7 @@ TITLES = [
     "Ragnar Lodbrog", "Njals saga", "Egil Skallagrimssons saga", "Vølsungesagaen",
     "Gunnlaug Ormstunges saga", "Runer", "Blót", "Vikingetiden", "Holmgang",
     "Ting (forsamling)", "Skjald", "Bersærk",
+    "Den yngre Edda", "Hel (gudinde)", "Vølvens spådom",
 ]
 
 
@@ -62,7 +63,7 @@ def fetch_batch(titles, retries=4):
     return []
 
 
-def chunk(text, size=900):
+def chunk(text, size=400):
     paras = [p.strip() for p in text.split("\n") if p.strip() and not p.startswith("==")]
     chunks, cur = [], ""
     for p in paras:
@@ -83,6 +84,7 @@ def main():
     n_art = n_chunk = 0
     # Fuld artikel-tekst (explaintext) er begrænset til ÉN titel per forespørgsel,
     # så vi henter en ad gangen.
+    seen = set()
     with open(out, "w", encoding="utf-8") as f:
         for title in TITLES:
             try:
@@ -93,13 +95,16 @@ def main():
             if not results:
                 print(f"  (sprang over: {title})")
             for real_title, extract in results:
+                if real_title in seen:
+                    continue
+                seen.add(real_title)
                 n_art += 1
                 for c in chunk(extract):
                     if len(c) > 80:
                         f.write(json.dumps({"title": real_title, "text": c},
                                            ensure_ascii=False) + "\n")
                         n_chunk += 1
-            time.sleep(1.0)
+            time.sleep(1.5)
     print(f"Hentede {n_art} artikler -> {n_chunk} tekststykker i {out}")
 
 

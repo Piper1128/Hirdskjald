@@ -55,10 +55,10 @@ af fakta.
 - **"Han lærer dig at kende" = lokal hukommelse (genkald)**, ikke vægt-træning på enheden.
   Det er den stabile, offline måde — og fundamentet vi senere porterer til en telefon-app.
 - Arkaisk-farvet **dansk**, ikke flydende oldnordisk (ingen model behersker oldnordisk samtale).
-- **RAG gør ham mere korrekt, ikke alvidende.** Semantisk opslag henter de rette artikler
-  (Tyrs hånd, Ragnarok-begivenhederne, Fenrir-bindingen svares korrekt) — men et enkelt
-  faktum kan stadig glippe, hvis det gemmer sig i et stort tekststykke. Finere opdeling
-  (mindre `size` i fetch_knowledge.py) ville skærpe det yderligere.
+- **RAG gør ham mere korrekt, ikke alvidende.** Semantisk opslag over paragraf-fine chunks
+  grounder de fleste svar korrekt (Odins øje ved Mimers brønd, Ragnarok, Tyrs hånd, Fenrir-
+  bindingen) — men en 7B kan stadig pynte lidt oven på kilden. Fuld faktuel stramhed ville
+  kræve en større model eller en reranker.
 
 ## Struktur
 ```text
