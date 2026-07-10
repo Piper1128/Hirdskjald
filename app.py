@@ -128,7 +128,7 @@ def chat():
             text, [c for _, c in passages], mem.context(), mem.recent(10))
     else:
         msgs = persona.chat_messages(text, mem.context(), mem.recent(10))
-    svar = skald.reply(msgs, max_new_tokens=384, temperature=0.4 if passages else 0.75)
+    svar = skald.reply(msgs, max_new_tokens=384, temperature=0.55 if passages else 0.75)
     mem.add_turn(text, svar)
 
     learned = []
