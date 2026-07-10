@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from skald.model import Skald
 from skald.memory import Memory
 from skald.knowledge import Knowledge
+from skald.embeddings import Embedder
 from skald import persona
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -26,7 +27,7 @@ if hasattr(sys.stdout, "reconfigure"):
 HERE = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__)
 mem = Memory(os.path.join(HERE, "memory.json"))
-knowledge = Knowledge(os.path.join(HERE, "data", "knowledge.jsonl"))
+knowledge = None  # bygges ved opstart (main) med semantiske embeddings
 skald = None  # indlæses ved opstart (main)
 
 # "jeg hedder X" / "mit navn er X" / "kald mig X"
@@ -121,7 +122,7 @@ def memory():
 
 
 def main():
-    global skald
+    global skald, knowledge
     ap = argparse.ArgumentParser()
     ap.add_argument("--adapter", default=None, help="valgfri LoRA-adapter (finpuds)")
     ap.add_argument("--port", type=int, default=5000)
@@ -130,8 +131,11 @@ def main():
     args = ap.parse_args()
     print("Vækker Hirdskjald (indlæser SnakModel-7B i 4-bit)... det tager et øjeblik.")
     skald = Skald(adapter_dir=args.adapter)
-    if knowledge:
-        print(f"Viden-base: {knowledge.N} stykker klar (RAG aktiv).")
+    kpath = os.path.join(HERE, "data", "knowledge.jsonl")
+    if os.path.exists(kpath):
+        print("Bygger viden-base (semantiske embeddings)...")
+        knowledge = Knowledge(kpath, embedder=Embedder())
+        print(f"Viden-base: {knowledge.N} stykker (semantisk RAG aktiv).")
     url = f"http://127.0.0.1:{args.port}"
     print(f"\nSkjalden er vågen. Åbn  {url}\n")
     if not args.no_browser:

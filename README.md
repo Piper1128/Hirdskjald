@@ -44,9 +44,10 @@ Hent en dansk viden-base om nordisk mytologi og sagaer (fra Wikipedia) én gang:
 ```bash
 python scripts/fetch_knowledge.py     # -> data/knowledge.jsonl (~50 artikler)
 ```
-Så slår skjalden op i den (BM25, ren Python — ingen embedding-model) og **grunder sine
-svar i rigtige overleveringer** i stedet for at gætte. Uden basen kører han fint — bare
-ustyret af fakta.
+Så slår skjalden op i den **semantisk** med en lille flersproget embedding-model (e5,
+~120 MB, kører på GPU'en; falder tilbage til BM25-nøgleord uden) og **grunder sine svar
+i rigtige overleveringer** i stedet for at gætte. Uden basen kører han fint — bare ustyret
+af fakta.
 
 ## Ærligt om hvad det er
 - En **persona/rollespil**-skjald, ikke en historiker: han taler smukt og i-rolle, men
@@ -54,9 +55,10 @@ ustyret af fakta.
 - **"Han lærer dig at kende" = lokal hukommelse (genkald)**, ikke vægt-træning på enheden.
   Det er den stabile, offline måde — og fundamentet vi senere porterer til en telefon-app.
 - Arkaisk-farvet **dansk**, ikke flydende oldnordisk (ingen model behersker oldnordisk samtale).
-- **RAG gør ham mere korrekt, ikke alvidende.** Med viden-basen henter han rigtige passager
-  og retter mange fejl (Fenrir er en ulv, Yggdrasil en ask) — men nøgleord-opslag rammer
-  ikke altid den præcise passage, så nogle svar er stadig gæt. Embeddings ville være næste niveau.
+- **RAG gør ham mere korrekt, ikke alvidende.** Semantisk opslag henter de rette artikler
+  (Tyrs hånd, Ragnarok-begivenhederne, Fenrir-bindingen svares korrekt) — men et enkelt
+  faktum kan stadig glippe, hvis det gemmer sig i et stort tekststykke. Finere opdeling
+  (mindre `size` i fetch_knowledge.py) ville skærpe det yderligere.
 
 ## Struktur
 ```text
@@ -67,7 +69,8 @@ Hirdskjald/
 │   ├── model.py           # SnakModel-7B i 4-bit (+ valgfri LoRA), generering
 │   ├── persona.py         # system-prompt, persona-anker + prompt-byggere
 │   ├── memory.py          # lokal JSON-hukommelse (navn, bedrifter, historik)
-│   └── knowledge.py       # BM25-opslag i viden-basen (RAG)
+│   ├── knowledge.py       # opslag i viden-basen (semantisk + BM25-fallback)
+│   └── embeddings.py      # lille flersproget e5-embedder (dense retrieval)
 ├── templates/index.html   # UI (Snak / Fortæl / Min saga / Hukommelse)
 ├── scripts/
 │   └── fetch_knowledge.py # hent dansk viden-base (Wikipedia) -> data/knowledge.jsonl

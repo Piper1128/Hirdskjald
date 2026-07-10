@@ -1,14 +1,18 @@
-"""RAG-retrieval: BM25 over den danske viden-base (data/knowledge.jsonl).
+"""RAG-retrieval over den danske viden-base (data/knowledge.jsonl).
 
-Ren Python — ingen embedding-model at downloade. Nøgleord-baseret opslag er
-stærkt for et myte-korpus, hvor spørgsmål deler ord med kilden (Odin, Ragnarok,
-Yggdrasil ...). Hent basen med scripts/fetch_knowledge.py.
+To metoder:
+  * dense (semantisk) via e5-embeddings — bruges når en Embedder gives (bedst recall)
+  * BM25 (nøgleord, ren Python) — fallback hvis ingen embedder
+
+Hent basen med scripts/fetch_knowledge.py.
 """
 import json
 import math
 import os
 import re
 from collections import Counter
+
+import torch
 
 _WORD = re.compile(r"[0-9a-zæøåA-ZÆØÅ]+")
 
@@ -18,9 +22,9 @@ def _tok(s):
 
 
 class Knowledge:
-    """BM25-indeks over viden-stykkerne. Tom (falsy) hvis basen ikke er hentet."""
+    """Opslag i viden-basen. Tom (falsy) hvis basen ikke er hentet."""
 
-    def __init__(self, path):
+    def __init__(self, path, embedder=None, cache_path=None):
         self.chunks = []
         if os.path.exists(path):
             with open(path, encoding="utf-8") as f:
@@ -28,10 +32,10 @@ class Knowledge:
                     line = line.strip()
                     if line:
                         self.chunks.append(json.loads(line))
-        # Titlen tælles tredobbelt, så et opslag rammer den rette artikel hårdere.
-        self.docs = [_tok((c["title"] + " ") * 3 + c["text"])
-                     for c in self.chunks]
-        self.N = len(self.docs)
+        self.N = len(self.chunks)
+
+        # BM25-indeks (altid bygget — billigt og bruges som fallback)
+        self.docs = [_tok((c["title"] + " ") * 3 + c["text"]) for c in self.chunks]
         self.avgdl = (sum(len(d) for d in self.docs) / self.N) if self.N else 1.0
         df = Counter()
         for d in self.docs:
@@ -40,13 +44,44 @@ class Knowledge:
                     for w, c in df.items()}
         self.tf = [Counter(d) for d in self.docs]
 
+        # Dense (semantisk) indeks hvis en embedder gives
+        self.embedder = embedder
+        self.emb = None
+        if embedder is not None and self.N:
+            self._build_dense(cache_path or (path + ".emb.pt"))
+
+    def _build_dense(self, cache_path):
+        if os.path.exists(cache_path):
+            try:
+                data = torch.load(cache_path)
+                if data.get("n") == self.N:
+                    self.emb = data["emb"]
+                    return
+            except Exception:
+                pass
+        texts = [c["title"] + ". " + c["text"] for c in self.chunks]
+        self.emb = self.embedder.embed(texts)  # (N, d) L2-normaliseret, CPU
+        try:
+            torch.save({"n": self.N, "emb": self.emb}, cache_path)
+        except Exception:
+            pass
+
     def __bool__(self):
         return self.N > 0
 
-    def retrieve(self, query, k=3, k1=1.5, b=0.75, min_score=3.5):
-        """Returnér op til k (score, chunk) over min_score, bedste først."""
+    def retrieve(self, query, k=4, min_score=0.79):
+        """Top-k (score, chunk). Semantisk hvis muligt, ellers BM25."""
         if not self.N:
             return []
+        if self.emb is not None:
+            q = self.embedder.embed_query(query)          # (d,)
+            sims = self.emb @ q                            # cosine (begge normaliseret)
+            vals, idx = torch.topk(sims, min(k, self.N))
+            return [(float(v), self.chunks[int(i)])
+                    for v, i in zip(vals.tolist(), idx.tolist()) if v >= min_score]
+        return self._bm25(query, k)
+
+    def _bm25(self, query, k, k1=1.5, b=0.75, min_score=3.5):
         q = _tok(query)
         scored = []
         for i in range(self.N):
