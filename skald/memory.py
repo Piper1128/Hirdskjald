@@ -46,6 +46,14 @@ class Memory:
             self.data["fakta"].append(f)
             self.save()
 
+    def remove_bedrift(self, bedrift):
+        self.data["bedrifter"] = [b for b in self.data["bedrifter"] if b != bedrift]
+        self.save()
+
+    def remove_fakta(self, fakta):
+        self.data["fakta"] = [f for f in self.data["fakta"] if f != fakta]
+        self.save()
+
     def add_turn(self, user, skald):
         self.data["historik"].append({"user": user, "skald": skald})
         self.data["historik"] = self.data["historik"][-40:]  # behold de seneste
