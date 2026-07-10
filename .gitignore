@@ -15,6 +15,9 @@ runs/
 # Personlig hukommelse (din egen data — hører ikke i repo'et)
 memory.json
 
+# Hentet viden-base (tredjeparts Wikipedia-tekst — hentes lokalt med fetch_knowledge.py)
+data/knowledge.jsonl
+
 # OS / editor
 .DS_Store
 Thumbs.db
