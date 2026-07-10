@@ -80,10 +80,18 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--adapter", default=None, help="valgfri LoRA-adapter (finpuds)")
     ap.add_argument("--port", type=int, default=5000)
+    ap.add_argument("--no-browser", action="store_true",
+                    help="åbn ikke browseren automatisk")
     args = ap.parse_args()
     print("Vækker Hirdskjald (indlæser SnakModel-7B i 4-bit)... det tager et øjeblik.")
     skald = Skald(adapter_dir=args.adapter)
-    print(f"\nSkjalden er vågen. Åbn  http://127.0.0.1:{args.port}\n")
+    url = f"http://127.0.0.1:{args.port}"
+    print(f"\nSkjalden er vågen. Åbn  {url}\n")
+    if not args.no_browser:
+        # Browseren åbnes lige efter serveren er bundet (modellen er alt indlæst nu).
+        import threading
+        import webbrowser
+        threading.Timer(1.5, lambda: webbrowser.open(url)).start()
     app.run(host="127.0.0.1", port=args.port, debug=False)
 
 

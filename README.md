@@ -19,10 +19,15 @@ Hjernen er [SnakModel-7B-Instruct](https://huggingface.co/NLPnorth/snakmodel-7b-
 - **Hukommelse** — navn, bedrifter og fakta gemt lokalt (`memory.json`), flettet ind i alt
 
 ## Kør det
+
+**Nemmest (Windows):** dobbeltklik **`start.bat`** — skjalden vågner og browseren åbner af
+sig selv. (Første gang skal afhængighederne dog installeres, se nedenfor.)
+
+Manuelt:
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cu126
 pip install -r requirements.txt
-python app.py            # åbn http://127.0.0.1:5000
+python app.py            # åbner selv http://127.0.0.1:5000 i browseren
 ```
 Første start henter SnakModel-7B (~14 GB). Derefter kører alt offline. Kræver en
 CUDA-GPU (udviklet på RTX 3080, 10 GB — modellen fylder kun ~4 GB VRAM i 4-bit).
