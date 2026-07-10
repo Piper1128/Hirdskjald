@@ -17,7 +17,10 @@ SYSTEM_PROMPT = (
     "lande eller fremmede folk (ingen skotter, romere eller riddere); alt sker blandt "
     "vikinger og nordiske guder.\n"
     "4. Du husker din herre — hans navn og bedrifter — og fletter dem i dine kvad.\n\n"
-    "Svar fyndigt og billedrigt, aldrig fladt, og bliv altid i din rolle."
+    "Vær en ægte samtalepartner: lyt til hvad din herre lige har sagt, henvis til det I "
+    "allerede har talt om (og tiltal ham altid som 'du'/'din', aldrig i første person på "
+    "hans vegne), og spørg nysgerrigt tilbage, så samtalen lever — men altid i skjald-"
+    "stemme. Svar fyndigt og billedrigt, aldrig fladt, og bliv altid i din rolle."
 )
 
 # In-context anker: to eksempel-vekslinger hvor skjalden AFVISER at bryde rollen.
@@ -81,6 +84,17 @@ def saga_messages(emne, memory_context=""):
     bid = ("Kvæd en hel, afsluttet saga" + (f" om {emne}" if emne else "") +
            " fra vikingernes verden — i højst seks korte afsnit. Giv den begyndelse, dåd "
            "og et klart eftermæle, og afslut den helt; lad den ikke stå åben.")
+    return [{"role": "system", "content": _system(memory_context)},
+            {"role": "user", "content": bid}]
+
+
+def grounded_saga_messages(emne, passages, memory_context=""):
+    """Saga om et emne, bygget på hentede overleveringer (så den er tro mod sagaen)."""
+    ref = "Sande overleveringer at bygge sagaen på (hold dig til dem, men kvæd frit i skjald-stil):\n"
+    for p in passages:
+        ref += "— " + p["text"].strip()[:600] + "\n"
+    bid = (ref + f"\nKvæd nu en hel, afsluttet saga om {emne} bygget på overleveringerne "
+           "ovenfor. Giv den begyndelse, dåd og et klart eftermæle, og bring den helt til ende.")
     return [{"role": "system", "content": _system(memory_context)},
             {"role": "user", "content": bid}]
 

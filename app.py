@@ -56,9 +56,9 @@ def chat():
     passages = knowledge.retrieve(text, k=4) if knowledge else []
     if passages:
         msgs = persona.grounded_chat_messages(
-            text, [c for _, c in passages], mem.context(), mem.recent())
+            text, [c for _, c in passages], mem.context(), mem.recent(10))
     else:
-        msgs = persona.chat_messages(text, mem.context(), mem.recent())
+        msgs = persona.chat_messages(text, mem.context(), mem.recent(10))
     # Lavere temperatur når vi grunder i fakta -> mindre digterisk afdrift
     svar = skald.reply(msgs, max_new_tokens=384,
                        temperature=0.4 if passages else 0.75)
@@ -89,9 +89,14 @@ def chat():
 @app.route("/api/saga", methods=["POST"])
 def saga():
     emne = (request.get_json(silent=True) or {}).get("emne", "").strip()
-    # Generisk saga = om EMNET, ikke om herren (personlig hukommelse kun i Snak/Min saga).
-    msgs = persona.saga_messages(emne)
-    return jsonify(svar=skald.reply(msgs, max_new_tokens=900))
+    # RAG: matcher emnet en kendt saga/overlevering, så byg sagaen på den og vis kilden.
+    passages = knowledge.retrieve(emne, k=3) if (knowledge and emne) else []
+    if passages:
+        msgs = persona.grounded_saga_messages(emne, [c for _, c in passages])
+    else:
+        msgs = persona.saga_messages(emne)
+    return jsonify(svar=skald.reply(msgs, max_new_tokens=900, temperature=0.8),
+                   kilder=[c["title"] for _, c in passages])
 
 
 @app.route("/api/minsaga", methods=["POST"])

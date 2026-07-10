@@ -46,6 +46,7 @@
   .chip .x{cursor:pointer;color:#d08a6a;margin-left:7px;font-weight:700}
   .chip .x:hover{color:#ef6b3a}
   .learned{font-size:13px;color:var(--dim);font-style:italic;margin:2px 6px 12px}
+  .kilder{font-size:12px;color:var(--dim);font-style:italic;margin-top:10px;padding-top:6px;border-top:1px solid var(--line)}
 </style>
 </head>
 <body>
@@ -149,6 +150,11 @@ async function sendChat(){
   try{ const j=await post('/api/chat',{text:t});
     wait.querySelector('.body').classList.remove('thinking');
     wait.querySelector('.body').textContent=j.svar||('('+(j.error||'tavshed')+')');
+    if(j.kilder && j.kilder.length){
+      const kd=document.createElement('div'); kd.className='kilder';
+      kd.textContent='📚 Kilder: '+[...new Set(j.kilder)].join(', ');
+      wait.appendChild(kd);
+    }
     if(j.learned && j.learned.length){
       const note=document.createElement('div'); note.className='learned';
       note.textContent='🖉 Skjalden husker nu: '+j.learned.join('; ');
@@ -163,7 +169,13 @@ $('#chatInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){
 $('#sagaGo').onclick=async()=>{
   $('#sagaGo').disabled=true; $('#sagaOut').innerHTML='<span class="thinking">Skjalden samler sit kvad…</span>';
   const j=await post('/api/saga',{emne:$('#sagaEmne').value.trim()});
-  $('#sagaOut').textContent=j.svar||'(tavshed)'; $('#sagaGo').disabled=false;
+  $('#sagaOut').textContent=j.svar||'(tavshed)';
+  if(j.kilder && j.kilder.length){
+    const kd=document.createElement('div'); kd.className='kilder';
+    kd.textContent='📚 Fortalt efter: '+[...new Set(j.kilder)].join(', ');
+    $('#sagaOut').appendChild(kd);
+  }
+  $('#sagaGo').disabled=false;
 };
 // --- Min saga ---
 $('#minGo').onclick=async()=>{
