@@ -111,6 +111,31 @@ def personal_saga_messages(navn, bedrifter, memory_context=""):
             {"role": "user", "content": bid}]
 
 
+def conversation_saga_messages(navn, history, bedrifter=None, memory_context=""):
+    """Kvæd en saga vævet af SELVE samtalen mellem herren og skjalden."""
+    hvem = navn or "min herre"
+    lines = []
+    for turn in history[-12:]:
+        u = (turn.get("user") or "").strip()[:300]
+        s = (turn.get("skald") or "").strip()[:300]
+        if u:
+            lines.append("Din herre: " + u)
+        if s:
+            lines.append("Du: " + s)
+    samtale = "\n".join(lines)
+    daad = "; ".join(bedrifter) if bedrifter else ""
+    bid = ("Her er samtalen ved ilden mellem dig (skjalden) og din herre:\n\n" + samtale +
+           f"\n\nKvæd nu {hvem}s egen saga — vævet af DENNE samtale. Gør din herre til helten, "
+           "og flet det han fortalte, spurgte om og svor ind i fortællingen som dåd, rejse og "
+           "eftermæle" + (f" (samt hans bedrifter: {daad})" if daad else "") +
+           ". Begynd sagaen straks (ikke bare en titel), og kvæd en fyldig saga i flere afsnit "
+           "på dansk i din egen skjald-stemme; giv ham et tilnavn og bring den helt til ende.")
+    msgs = [{"role": "system", "content": _system(memory_context)}]
+    msgs.extend(_ANCHOR)  # hold skjalden i rollen — ellers falder den i skrive-assistent-mode
+    msgs.append({"role": "user", "content": bid})
+    return msgs
+
+
 def extract_messages(user_text):
     """Neutral 'usynlig skriver' der udtrækker nye kendsgerninger om brugeren."""
     return [

@@ -90,9 +90,12 @@
   <section id="minsaga" class="tab">
     <div class="card">
       <h3>Din egen saga</h3>
-      <p class="hint">Skjalden digter en saga om <em>dig</em> ud fra det han ved om dine bedrifter
-        (udfyld dem under Hukommelse).</p>
-      <button class="go" id="minGo">Kvæd min saga</button>
+      <p class="hint">Skjalden digter en saga om <em>dig</em> — enten ud fra dine bedrifter
+        (Hukommelse), eller vævet af jeres samtale.</p>
+      <div class="row">
+        <button class="go" id="minGo">Kvæd min saga</button>
+        <button class="go" id="samtaleGo" style="background:var(--gold)">Saga af vores samtale</button>
+      </div>
       <div class="out" id="minOut"><span class="hint">Dit eftermæle formes her.</span></div>
     </div>
   </section>
@@ -181,6 +184,10 @@ $('#sagaGo').onclick=async()=>{
 $('#minGo').onclick=async()=>{
   $('#minGo').disabled=true; $('#minOut').innerHTML='<span class="thinking">Skjalden former dit eftermæle…</span>';
   const j=await post('/api/minsaga',{}); $('#minOut').textContent=j.svar||'(tavshed)'; $('#minGo').disabled=false;
+};
+$('#samtaleGo').onclick=async()=>{
+  $('#samtaleGo').disabled=true; $('#minOut').innerHTML='<span class="thinking">Skjalden væver jeres samtale til en saga…</span>';
+  const j=await post('/api/samtalesaga',{}); $('#minOut').textContent=j.svar||'(tavshed)'; $('#samtaleGo').disabled=false;
 };
 // --- Hukommelse ---
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}

@@ -106,6 +106,17 @@ def minsaga():
     return jsonify(svar=skald.reply(msgs, max_new_tokens=900))
 
 
+@app.route("/api/samtalesaga", methods=["POST"])
+def samtalesaga():
+    hist = mem.data["historik"]
+    if not hist:
+        return jsonify(svar="Vi har endnu ikke talt sammen, herre. Sæt dig ved ilden og "
+                            "fortæl mig om dig — så væver jeg din saga af vore ord.")
+    msgs = persona.conversation_saga_messages(
+        mem.data["navn"], hist, mem.data["bedrifter"], mem.context())
+    return jsonify(svar=skald.reply(msgs, max_new_tokens=900, temperature=0.85))
+
+
 @app.route("/api/memory", methods=["GET", "POST"])
 def memory():
     if request.method == "POST":
