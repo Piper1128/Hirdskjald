@@ -17,7 +17,7 @@ from flask import Flask, request, jsonify, render_template, send_from_directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from skald.model import Skald
 from skald.memory import Memory
-from skald.knowledge import Knowledge
+from skald.knowledge import Knowledge, medieval_source
 from skald.embeddings import Embedder
 from skald import persona
 
@@ -46,6 +46,14 @@ _SAGA_RE = re.compile(
     r"\ben saga\b|\bet kvad\b|\bet vers\b|\bkvæd\b|\bdigt\b|fortæl .{0,15}\bsaga\b|lav .{0,15}\bsaga\b",
     re.IGNORECASE)
 _EMNE_RE = re.compile(r"\b(?:saga|kvad|vers|kvæd|digt|fortæl)\b.*?\b(?:om|over)\s+(.+)", re.IGNORECASE)
+# Herren deler sin dag / sine følelser (godt eller skidt) -> mød ham med passende lore
+_MOOD_RE = re.compile(
+    r"\b(møgdag|lortedag|skidedag)\b|haft en .{0,25}\bdag\b|alt (gik|går) galt|orker ikke|"
+    r"jeg (er|føler mig|har det) (så |rigtig |virkelig |ret )?"
+    r"(ked|trist|nedtrykt|deprimeret|stresset|udkørt|udmattet|træt|frustreret|skuffet|ensom|"
+    r"vred|sur|rasende|bange|glad|lykkelig|stolt|begejstret|lettet|elendig)|"
+    r"\bjeg (græder|savner|hader)\b",
+    re.IGNORECASE)
 
 
 @app.route("/")
@@ -93,13 +101,25 @@ def chat():
         m = _EMNE_RE.search(text)
         emne = m.group(1).strip(" .!?") if m else ""
         passages = knowledge.retrieve(emne or text, k=3) if knowledge else []
+        skrift = ""
         if passages:
-            msgs = persona.grounded_saga_messages(emne or text, [c for _, c in passages])
+            skrift = medieval_source(passages[0][1]["title"])
+            msgs = persona.grounded_saga_messages(
+                emne or text, [c for _, c in passages], skrift)
         else:
             msgs = persona.saga_messages(emne)
         svar = skald.reply(msgs, max_new_tokens=900, temperature=0.8)
         mem.add_turn(text, svar)
-        return jsonify(svar=svar, kilder=[c["title"] for _, c in passages])
+        return jsonify(svar=svar, kilder=[c["title"] for _, c in passages], skrift=skrift)
+
+    # --- Herren deler sin dag/følelse -> mød ham med et passende sagn/saga/vers ---
+    if _MOOD_RE.search(text):
+        msgs = persona.comfort_messages(text, mem.context(), mem.recent(10))
+        # prefill tvinger skjalden ind i lore-sporet fremfor moderne trøst
+        svar = skald.reply(msgs, max_new_tokens=420, temperature=0.85,
+                           seed="Hør et sagn, herre: ")
+        mem.add_turn(text, svar)
+        return jsonify(svar=svar)
 
     # --- Almindelig samtale (default): RAG-grundet + lærer om dig ---
     passages = knowledge.retrieve(text, k=4) if knowledge else []

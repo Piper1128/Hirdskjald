@@ -29,17 +29,18 @@ class Skald:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     @torch.no_grad()
-    def reply(self, messages, max_new_tokens=320, temperature=0.75, top_p=0.9):
+    def reply(self, messages, max_new_tokens=320, temperature=0.75, top_p=0.9, seed=""):
         text = self.tok.apply_chat_template(
             messages, add_generation_prompt=True, tokenize=False)
+        text = text + seed  # 'prefill': tvinger svarets begyndelse -> låser stemme/spor
         enc = self.tok(text, return_tensors="pt").to(self.device)
         out = self.model.generate(
             **enc, max_new_tokens=max_new_tokens, do_sample=True,
             temperature=temperature, top_p=top_p, repetition_penalty=1.1,
             pad_token_id=self.tok.eos_token_id)
-        text_out = self.tok.decode(
+        gen = self.tok.decode(
             out[0][enc["input_ids"].shape[1]:], skip_special_tokens=True)
-        return text_out.strip()
+        return (seed + gen).strip()
 
     @torch.no_grad()
     def extract_facts(self, user_text):

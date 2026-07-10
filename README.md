@@ -17,7 +17,8 @@ Hjernen er [SnakModel-7B-Instruct](https://huggingface.co/NLPnorth/snakmodel-7b-
 Ingen faner: du styrer alt gennem samtalen (ligesom en rigtig assistent), og skjalden
 forstår hvad du beder om:
 - **Snak / spørg** — samtale om guder og sagaer, grundet i rigtige kilder
-- **"Fortæl en saga om Ragnarok"** — han kvæder en saga (og viser hvilken saga)
+- **"Fortæl en saga om Ragnarok"** — han anmelder sagaen og viser fra hvilket skrift den er (Edda/saga)
+- **Del din dag** — "jeg har haft en møgdag" (eller en god en) → han møder din stemning med et passende sagn eller vers
 - **"Digt en saga om mig"** — din egen saga ud fra det han ved om dig
 - **"Lav en saga af vores samtale"** — hele jeres snak vævet til ét kvad
 - **"Glem alt om mig"** — nulstiller hukommelsen

@@ -21,6 +21,40 @@ def _tok(s):
     return [w.lower() for w in _WORD.findall(s)]
 
 
+# Middelalderlig kilde (bog/skrift) bag hvert videns-emne — så skjalden kan sige hvorfra.
+_MEDIEVAL_SOURCES = {
+    "Vøluspá": "Vøluspá i den Poetiske Edda",
+    "Vølvens spådom": "Vøluspá i den Poetiske Edda",
+    "Håvamål": "Håvamål i den Poetiske Edda",
+    "Den ældre Edda": "den Poetiske (Ældre) Edda, ca. 1270",
+    "Den yngre Edda": "Snorris (Yngre) Edda, ca. 1220",
+    "Snorris Edda": "Snorris (Yngre) Edda, ca. 1220",
+    "Egils saga": "Egils saga Skallagrímssonar (islandsk slægtssaga, ca. 1230)",
+    "Njáls saga": "Njáls saga (islandsk slægtssaga, ca. 1280)",
+    "Vølsunga saga": "Vølsunga saga (islandsk fornaldersaga)",
+    "Gunlaug Ormstunges saga": "Gunnlaugs saga ormstungu",
+    "Regnar Lodbrog": "Ragnars saga loðbrókar og Saxos Gesta Danorum",
+    "Ragnar Lodbrog": "Ragnars saga loðbrókar og Saxos Gesta Danorum",
+    "Runealfabet": "runeindskrifter og middelalderlige kilder",
+    "Runer": "runeindskrifter og middelalderlige kilder",
+    "Blot": "middelalderlige krøniker og arkæologiske fund",
+    "Vikingetiden": "sagaer, krøniker og arkæologiske fund",
+    "Holmgang": "de islandske sagaer",
+    "Ting (forsamling)": "de islandske sagaer og gamle lovtekster",
+    "Skjald": "skjaldekvadene og sagaerne",
+    "Bersærk": "sagaerne og Snorris Edda",
+}
+
+
+def medieval_source(title):
+    """Den middelalderlige kilde (bog/skrift) bag et videns-emne."""
+    if title in _MEDIEVAL_SOURCES:
+        return _MEDIEVAL_SOURCES[title]
+    if "saga" in title.lower():
+        return title + " (islandsk saga)"
+    return "Snorris Edda og den Poetiske Edda"  # de fleste myter
+
+
 class Knowledge:
     """Opslag i viden-basen. Tom (falsy) hvis basen ikke er hentet."""
 

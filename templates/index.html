@@ -108,7 +108,12 @@ async function sendChat(){
     const j=await post('/api/chat',{text:t});
     const body=wait.querySelector('.body'); body.classList.remove('thinking');
     body.textContent=j.svar||('('+(j.error||'tavshed')+')');
-    if(j.kilder && j.kilder.length){
+    if(j.skrift){
+      const kd=document.createElement('div'); kd.className='kilder';
+      let tx='📜 Kvædet efter '+j.skrift;
+      if(j.kilder && j.kilder.length) tx+='  ·  via dansk Wikipedia: '+[...new Set(j.kilder)].join(', ');
+      kd.textContent=tx; wait.appendChild(kd);
+    } else if(j.kilder && j.kilder.length){
       const kd=document.createElement('div'); kd.className='kilder';
       kd.textContent='📚 Kilder: '+[...new Set(j.kilder)].join(', ');
       wait.appendChild(kd);
