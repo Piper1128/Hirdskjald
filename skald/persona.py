@@ -228,43 +228,68 @@ def grounded_saga_messages(emne, passages, kilde="", memory_context=""):
     return msgs
 
 
+# Few-shot der VISER den ønskede episke, konkrete saga-stil (navngiven helt, sanseligt, replik,
+# kenninger, slut på et klart valg). Few-shot slår instruktion på denne 7B.
+_SAGA_ANCHOR = [
+    {"role": "user", "content": "Fortæl mig en saga over flere ture, som jeg kan styre."},
+    {"role": "assistant", "content":
+        "Hør, herre! I Hålogalands sorte fjorde voksede Ørvar op, søn af Håkon Jernkind, med "
+        "saltvand i årerne og ravnehunger i brystet. Den vinter, da isen sang mod skroget, "
+        "stævnede han sit langskib Havulven mod nord — did hvor solen ej står op, og hvor "
+        "jætterne siges at male mænds knogler til mel.\n\n"
+        "Ved en tåget vig fandt de et fremmed skib: masten knækket, mændene stivnet i rim. Kun "
+        "én åndede endnu — en enøjet olding, der hviskede gennem blå læber: »Vend om, dreng, "
+        "eller søg din død i dybet.« Ørvar lagde hånden på sværdet Naddod og mærkede kulden "
+        "krybe ind under brynjen.\n\n"
+        "Sig mig, herre — skal Ørvar skænke oldingen sit sidste brød og lytte til hans varsel, "
+        "eller skal han straks stævne dybere ind i tågen efter jætternes guld?"},
+]
+
+
 def saga_start_messages(memory_context=""):
     """Begynd en INTERAKTIV saga: skjalden vælger helt+optakt, kvæder FØRSTE del, slutter ved et valg."""
-    bid = ("Du vil kvæde din herre en saga SAMMEN med ham, over flere ture. Find selv en helt "
-           "og en begyndelse fra den nordiske verden (en ung kriger, en søfarer, en jarls "
-           "datter — hvad du vil), og kvæd kun den FØRSTE scene (ikke et helt livsforløb): "
-           "kort, levende og konkret, i højst to afsnit. Begynd straks i selve fortællingen "
-           "(ingen indledende bemærkninger, ingen riddere eller "
-           "nutids-ting). Slut delen ved et vendepunkt og INVITÉR din herre til at bestemme "
-           "hvad der sker nu — stil ham ét åbent spørgsmål (eller to muligheder). Fortæl "
-           "aldrig hele sagaen på én gang, og afrund din sætning helt.")
+    bid = ("Kvæd nu en NY saga sammen med din herre, over flere ture, i SAMME episke, konkrete "
+           "stil som ovenfor. Find selv en helt fra den nordiske verden og giv ham et navn, en "
+           "slægt og en hjemstavn — og find dine EGNE navne (genbrug ALDRIG Ørvar eller Naddod "
+           "fra eksemplet). Fortæl i TREDJE person om ham (han/hun), aldrig som 'jeg', og gør "
+           "ALDRIG din herre (læseren) til helten. Kvæd kun den FØRSTE scene (ikke et helt "
+           "livsforløb): to-tre afsnit, sanseligt og konkret — skib, sværd, sne, blod, en replik "
+           "der siges højt, billedsprog og kenninger (havhesten = skibet, sårets dug = blodet). "
+           "Undgå tomme ord som 'ære', 'heltemod' og 'skæbne', og brug ALDRIG moderne ord eller "
+           "billeder (økonomi, orkester, symfoni, diamant, energi). Ingen riddere eller nutids-"
+           "ting. Begynd straks i fortællingen, og slut ved et vendepunkt med ét klart valg til "
+           "din herre om hvad der skal ske nu.")
     msgs = [{"role": "system", "content": _system(memory_context)}]
-    msgs.extend(_ANCHOR)
+    msgs.extend(_SAGA_ANCHOR)
     msgs.append({"role": "user", "content": bid})
     return msgs
 
 
 def saga_continue_messages(historie, steer, memory_context=""):
     """Fortsæt den interaktive saga ud fra herrens styring af næste del."""
-    bid = ("Sagaen indtil nu:\n" + historie + "\n\nDin herre ønsker nu, at det næste skal gå "
-           "sådan / handle om: \"" + steer + "\"\n\nKvæd NÆSTE del — kort, i højst to afsnit — "
-           "og flet hans ønske ind, tro mod det der allerede er sket. Hold alt i den nordiske "
-           "verden (ingen riddere/nutids-ting). Begynd STRAKS i handlingen — ingen bemærkning "
-           "om at du 'fortsætter' eller 'følger hans ønske'; fortæl selve scenen konkret, slut "
-           "igen ved et vendepunkt med en invitation til ham om hvad der sker nu, og afrund helt.")
+    bid = ("Sagaen indtil nu:\n" + historie + "\n\nKvæd NÆSTE scene i samme episke, konkrete "
+           "stil — to-tre afsnit, sanseligt og med billedsprog og kenninger, tro mod det der "
+           "allerede er sket og mod SAMME navngivne helt (fortæl i tredje person om HAM, aldrig "
+           "som 'jeg' og aldrig med din herre som helt). Begynd STRAKS i handlingen (ingen "
+           "bemærkning om at du fortsætter), undgå tomme ord som 'ære' og 'skæbne' og alle "
+           "moderne ord/billeder (orkester, diamant, energi), hold alt i den nordiske verden, og "
+           "slut ved et vendepunkt med ét klart valg til din herre.\n\nDET VIGTIGSTE: "
+           "din herre bestemmer, at netop DETTE skal ske nu — byg scenen om det: \"" + steer + "\"")
     msgs = [{"role": "system", "content": _system(memory_context)}]
-    msgs.extend(_ANCHOR)
+    msgs.extend(_SAGA_ANCHOR)
     msgs.append({"role": "user", "content": bid})
     return msgs
 
 
 def saga_end_messages(historie, memory_context=""):
     """Afslut den interaktive saga værdigt."""
-    bid = ("Sagaen indtil nu:\n" + historie + "\n\nBring nu sagaen til en VÆRDIG afslutning i "
-           "et par afsnit: giv helten sit klare eftermæle og luk fortællingen helt. Hold alt "
-           "i den nordiske verden, og afrund din sætning helt.")
+    bid = ("Sagaen indtil nu:\n" + historie + "\n\nBring nu sagaen til en VÆRDIG, episk "
+           "afslutning i et par afsnit: lad heltens sidste dåd folde sig ud KONKRET (handling, "
+           "ikke tomme ord), og giv ham så et eftermæle, som skjalde vil kvæde det — hvordan "
+           "hans navn huskes i hallen. Ingen moderne morale eller 'lektioner'; hold alt i den "
+           "nordiske verden og afrund helt.")
     msgs = [{"role": "system", "content": _system(memory_context)}]
-    msgs.extend(_ANCHOR)
+    msgs.extend(_SAGA_ANCHOR)
     msgs.append({"role": "user", "content": bid})
     return msgs
 

@@ -162,8 +162,8 @@ def chat():
             mem.add_turn(text, svar)
             return jsonify(svar=svar)
         msgs = persona.saga_continue_messages(mem.data["saga"]["historie"], text, mem.context())
-        svar = skald.reply(msgs, max_new_tokens=520, temperature=0.85,
-                           seed="Og videre gik sagaen. ")
+        svar = skald.reply(msgs, max_new_tokens=520, temperature=0.8,
+                           seed="Og se, herre: ")
         mem.saga_advance(svar)
         mem.add_turn(text, svar)
         return jsonify(svar=svar, saga=True)
@@ -177,8 +177,8 @@ def chat():
     # --- Start en INTERAKTIV saga over flere ture (skjalden vælger optakt, du styrer siden) ---
     if _ISAGA_RE.search(text):
         msgs = persona.saga_start_messages(mem.context())
-        svar = skald.reply(msgs, max_new_tokens=520, temperature=0.85,
-                           seed="Hør, herre, en ny saga tager sin begyndelse. ")
+        svar = skald.reply(msgs, max_new_tokens=520, temperature=0.8,
+                           seed="Hør, herre! I ")  # start scenen konkret som forbilledet (I <sted>...)
         mem.saga_begin(svar)
         mem.add_turn(text, svar)
         return jsonify(svar=svar, saga=True)
