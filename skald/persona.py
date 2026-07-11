@@ -294,6 +294,58 @@ def saga_end_messages(historie, memory_context=""):
     return msgs
 
 
+# --- Fane "Saga-fortælling": sokratiske spørgsmål (kuraterede, i-rolle, intet model-kald = pålidelige) ---
+_SOKRAT_1 = [
+    "Sig mig, herre — søger du gudernes kvad eller dødelige heltes dåd? Og skal det klinge af "
+    "kamp, af list, eller af kærlighed og svig?",
+    "Hvad står din hu til i aften, herre? Aser og jætter i Asgård, eller helte på det salte hav "
+    "— og skal det ende i sejr eller i fald?",
+    "Fortæl mig, herre: vil du høre om verdens skabelse og undergang, om én mands hævn, eller om "
+    "guder der gækkes ved list?",
+]
+_SOKRAT_2 = [
+    "Nævn mig da et navn eller et sted, herre — en gud, en orm, en konge — så finder jeg det rette kvad.",
+    "Og skal helten sejre ved sværdets styrke eller ved ordets snilde, herre?",
+    "Så sig mig: skal blodet flyde, eller skal det være et kvad om visdom og varsler, herre?",
+]
+
+
+def socratic_question(runde, svar):
+    """Ét kort, i-rolle spørgsmål der ringer den rigtige saga ind (runde 1 bredt, 2 snævrere)."""
+    pool = _SOKRAT_1 if runde <= 1 else _SOKRAT_2
+    return pool[len("".join(svar or [])) % len(pool)]
+
+
+def din_saga_chapter_messages(navn, story, nye_bedrifter, nye_noter, foerste=False, alle_bedrifter=None):
+    """Kvæd NÆSTE kapitel af herrens egen saga (bygges op kapitel for kapitel over tid)."""
+    dele = []
+    if foerste:
+        dele.append(f"Du skal begynde {navn}s egen saga — kvæd DET FØRSTE kapitel.")
+    else:
+        dele.append(f"{navn}s saga indtil nu:\n" + (story or "(intet endnu)"))
+        dele.append("Kvæd NÆSTE kapitel, der bygger videre på det ovenstående uden at gentage det.")
+    dele.append(
+        f"Gør {navn} til helten i TREDJE person (han/hun), konkret og billedrigt i skjald-stil, "
+        "i ét til to afsnit. Ingen riddere, skoler eller nutids-ting. Fortæl KUN selve "
+        "fortællingen — brug aldrig ord som 'kapitel', 'fortælling', 'vi vender os mod' eller "
+        "andet om din egen digtning. Afrund din sætning helt.")
+    ny = []
+    if foerste and alle_bedrifter:
+        ny += list(alle_bedrifter)
+    if (not foerste) and nye_bedrifter:
+        ny += list(nye_bedrifter)
+    if nye_noter:
+        ny.append(" ".join(nye_noter))
+    if ny:
+        dele.append(f"DET VIGTIGSTE — flet netop DISSE ting om {navn} konkret ind i kapitlet: "
+                    + "; ".join(ny))
+    bid = "\n\n".join(dele)
+    msgs = [{"role": "system", "content": _system()}]
+    msgs.extend(_ANCHOR)
+    msgs.append({"role": "user", "content": bid})
+    return msgs
+
+
 def personal_saga_messages(navn, bedrifter, memory_context=""):
     """Bed skjalden digte HERRENS egen saga ud fra hans bedrifter — kort og afsluttet."""
     hvem = navn or "min herre"

@@ -12,7 +12,10 @@ def _default():
     return {"navn": "", "bedrifter": [], "fakta": [], "historik": [],
             "resume": "", "resume_count": 0,
             "skjald": None,  # skjaldens EGEN faste identitet (navn/hjemstavn/forhistorie)
-            "saga": {"aktiv": False, "historie": "", "del": 0}}  # interaktiv saga over flere ture
+            # Fane "Din saga": kapitler bygges op over tid; brugt_* = hvor meget der er foldet ind
+            "min_saga": {"kapitler": [], "brugt_bedrifter": 0, "brugt_fakta": 0},
+            # Fane "Saga-fortælling": kortvarig sokratisk tilstand (hvilken saga vil du høre)
+            "saga_flow": {"aktiv": False, "runde": 0, "svar": []}}
 
 
 class Memory:
@@ -87,38 +90,45 @@ class Memory:
         """De rå ture der endnu ikke er foldet ind i resuméet (til prompten)."""
         return self.data["historik"][self.data["resume_count"]:]
 
-    def clear_conversation(self):
-        """Ryd KUN samtalen (historik + resumé + evt. igangværende saga); behold navn,
-        bedrifter, fakta OG skjaldens egen identitet (din skjald forbliver din)."""
-        self.data["historik"] = []
-        self.data["resume"] = ""
-        self.data["resume_count"] = 0
-        self.data["saga"] = {"aktiv": False, "historie": "", "del": 0}
-        self.save()
-
     # --- Skjaldens egen identitet ---
     def set_skjald(self, identitet):
         self.data["skjald"] = identitet
         self.save()
 
-    # --- Interaktiv saga over flere ture (herren styrer undervejs) ---
-    def saga_active(self):
-        return bool((self.data.get("saga") or {}).get("aktiv"))
-
-    def saga_begin(self, part):
-        self.data["saga"] = {"aktiv": True, "historie": part[:1500], "del": 1}
+    # --- Fane "Din saga": kapitler bygges op over tid ---
+    def min_saga_add(self, kapitel):
+        ms = self.data.get("min_saga") or {"kapitler": [], "brugt_bedrifter": 0, "brugt_fakta": 0}
+        ms["kapitler"].append((kapitel or "").strip())
+        ms["brugt_bedrifter"] = len(self.data["bedrifter"])  # alt kendt er nu foldet ind
+        ms["brugt_fakta"] = len(self.data["fakta"])
+        self.data["min_saga"] = ms
         self.save()
 
-    def saga_advance(self, part):
-        s = self.data.get("saga") or {"aktiv": True, "historie": "", "del": 0}
-        s["historie"] = (s.get("historie", "") + "\n\n" + part)[-1500:]  # behold seneste narrativ
-        s["del"] = s.get("del", 0) + 1
-        s["aktiv"] = True
-        self.data["saga"] = s
+    def clear_min_saga(self):
+        """Ryd DIN saga helt (navn, bedrifter, noter, kapitler) — behold skjaldens egen identitet."""
+        self.data["navn"] = ""
+        self.data["bedrifter"] = []
+        self.data["fakta"] = []
+        self.data["min_saga"] = {"kapitler": [], "brugt_bedrifter": 0, "brugt_fakta": 0}
         self.save()
 
-    def saga_stop(self):
-        self.data["saga"] = {"aktiv": False, "historie": "", "del": 0}
+    # --- Fane "Saga-fortælling": kortvarig sokratisk tilstand ---
+    def flow_begin(self):
+        self.data["saga_flow"] = {"aktiv": True, "runde": 1, "svar": []}
+        self.save()
+
+    def flow_answer(self, svar):
+        f = self.data.get("saga_flow") or {"aktiv": True, "runde": 1, "svar": []}
+        f["svar"].append((svar or "").strip())
+        self.data["saga_flow"] = f
+        self.save()
+
+    def flow_set_runde(self, runde):
+        self.data["saga_flow"]["runde"] = runde
+        self.save()
+
+    def flow_reset(self):
+        self.data["saga_flow"] = {"aktiv": False, "runde": 0, "svar": []}
         self.save()
 
     def context(self):

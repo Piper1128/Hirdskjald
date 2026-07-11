@@ -13,60 +13,115 @@
   *{box-sizing:border-box}
   body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#241a10,#14100c);
     color:var(--ink);font:16px/1.6 "Iowan Old Style","Palatino Linotype",Georgia,serif}
-  header{text-align:center;padding:26px 16px 6px}
+  header{text-align:center;padding:24px 16px 4px}
   header h1{margin:0;font-size:34px;letter-spacing:.14em;color:var(--gold);
     text-shadow:0 0 24px rgba(201,162,75,.25)}
   header p{margin:6px 0 0;color:var(--dim);font-style:italic}
   .wrap{max-width:820px;margin:0 auto;padding:14px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:10px}
-  .log{min-height:200px;max-height:58vh;overflow:auto;padding:4px 2px}
+  .tabs{display:flex;gap:8px;margin:8px 0 0}
+  .tab{flex:1;background:var(--panel);border:1px solid var(--line);border-bottom:none;
+    border-radius:12px 12px 0 0;padding:12px 10px;cursor:pointer;color:var(--dim);
+    font-family:inherit;font-size:16px;text-align:center;letter-spacing:.02em}
+  .tab.active{color:var(--gold);background:linear-gradient(180deg,#241a0f,#1c1409);
+    border-color:#4a3a1f;font-weight:700}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:0 0 14px 14px;padding:18px}
+  .pane{display:none} .pane.active{display:block}
+
+  .log{min-height:200px;max-height:56vh;overflow:auto;padding:4px 2px}
   .msg{margin:12px 0;padding:12px 14px;border-radius:12px;white-space:pre-wrap}
   .me{background:#241d14;border:1px solid var(--line)}
   .sk{background:linear-gradient(180deg,#241a0f,#1c1409);border:1px solid #4a3a1f}
   .who{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
   .sk .who{color:var(--gold)}
-  textarea{width:100%;background:#120e0a;color:var(--ink);border:1px solid var(--line);
+  .kilder{font-size:12px;color:var(--dim);font-style:italic;margin-top:10px;padding-top:6px;border-top:1px solid var(--line)}
+  .thinking{color:var(--gold);font-style:italic}
+  .hint{color:var(--dim);font-style:italic}
+
+  textarea,input[type=text]{width:100%;background:#120e0a;color:var(--ink);border:1px solid var(--line);
     border-radius:10px;padding:11px;font-family:inherit;font-size:15px;resize:vertical}
   .row{display:flex;gap:8px;margin-top:10px}
   button.go{background:var(--ember);color:#1a130a;border:none;border-radius:10px;
     padding:11px 20px;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;white-space:nowrap}
   button.go:disabled{opacity:.5;cursor:wait}
-  .hint{color:var(--dim);font-size:14px;font-style:italic}
-  .thinking{color:var(--gold);font-style:italic}
-  .learned{font-size:13px;color:var(--dim);font-style:italic;margin:2px 6px 12px}
-  .kilder{font-size:12px;color:var(--dim);font-style:italic;margin-top:10px;padding-top:6px;border-top:1px solid var(--line)}
-  .forslag{display:flex;flex-wrap:wrap;gap:7px;margin:12px 2px 2px}
-  .forslag .lbl{width:100%;color:var(--dim);font-size:13px;font-style:italic;margin-bottom:2px}
-  .sug{background:#241d14;border:1px solid var(--line);color:var(--ink);border-radius:999px;
-    padding:6px 13px;font-family:inherit;font-size:14px;cursor:pointer}
-  .sug:hover{border-color:var(--gold);color:var(--gold)}
-  .topbar{display:flex;justify-content:flex-end;margin-bottom:8px}
-  button.newchat{background:transparent;color:var(--dim);border:1px solid var(--line);
-    border-radius:999px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:13px}
-  button.newchat:hover{border-color:var(--gold);color:var(--gold)}
+  button.ghost{background:transparent;color:var(--dim);border:1px solid var(--line);border-radius:10px;
+    padding:11px 16px;cursor:pointer;font-family:inherit;font-size:14px;white-space:nowrap}
+  button.ghost:hover{border-color:var(--gold);color:var(--gold)}
+
+  .sagatitel{color:var(--gold);font-size:24px;margin:2px 0 12px;letter-spacing:.02em}
+  .felt{margin:10px 0}
+  .felt label{display:block;color:var(--dim);font-size:13px;font-style:italic;margin-bottom:4px}
+  .kapitel{margin:14px 0;padding:14px 16px;border-radius:12px;white-space:pre-wrap;
+    background:linear-gradient(180deg,#241a0f,#1c1409);border:1px solid #4a3a1f}
+  .kapitel .nr{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+  .kendt{margin-top:14px;font-size:14px;color:var(--dim)}
+  .chip{display:inline-block;background:#241d14;border:1px solid var(--line);border-radius:999px;
+    padding:4px 11px;margin:3px 4px 0 0;font-size:13px}
+  .sep{height:1px;background:var(--line);margin:16px 0}
 </style>
 </head>
 <body>
 <header>
   <h1>H I R D S K J A L D</h1>
-  <p>din skjald i tjeneste — sig hvad du vil, så gør han det</p>
+  <p>din skjald i tjeneste — hør de gamle sagaer, eller lad din egen vokse frem</p>
 </header>
 
 <div class="wrap">
+  <div class="tabs">
+    <div class="tab active" id="tabFortael" onclick="visFane('fortael')">Saga-fortælling</div>
+    <div class="tab" id="tabDin" onclick="visFane('din')">Din saga</div>
+  </div>
+
   <div class="card">
-    <div class="topbar">
-      <button id="newChat" class="newchat"
-        title="Ryd samtalen — skjalden husker stadig hvem du er (navn og bedrifter)">↺ Ny samtale</button>
-    </div>
-    <div id="log" class="log">
-      <p class="hint">Hils skjalden, spørg om guderne, eller bed om et kvad. Sig bare hvad du vil — prøv fx et af forslagene.</p>
+    <!-- ============ Fane 1: Saga-fortælling ============ -->
+    <div class="pane active" id="paneFortael">
+      <div id="log" class="log">
+        <p class="hint">Bed skjalden om en saga. Han spørger dig ét-to spørgsmål for at finde den
+          rette — og kvæder så den ægte saga fra de gamle overleveringer.</p>
+      </div>
+      <div class="row">
+        <textarea id="inp" rows="2" placeholder="Bed om en saga, eller svar skjalden…"></textarea>
+      </div>
+      <div class="row">
+        <button class="go" id="btnSaga">Fortæl mig en saga</button>
+        <button class="ghost" id="btnSend">Send svar</button>
+      </div>
     </div>
 
-    <div id="forslag" class="forslag"><span class="lbl">Prøv fx:</span></div>
+    <!-- ============ Fane 2: Din saga ============ -->
+    <div class="pane" id="paneDin">
+      <div id="sagatitel" class="sagatitel">Din saga</div>
 
-    <div class="row">
-      <textarea id="chatInput" rows="2" placeholder="Sig til skjalden hvad du vil…"></textarea>
-      <button class="go" id="chatSend">Tal</button>
+      <div class="felt">
+        <label>Dit navn</label>
+        <div class="row" style="margin-top:0">
+          <input type="text" id="dNavn" placeholder="fx Morten">
+          <button class="ghost" onclick="gem('navn')">Gem navn</button>
+        </div>
+      </div>
+      <div class="felt">
+        <label>En bedrift</label>
+        <div class="row" style="margin-top:0">
+          <input type="text" id="dBedrift" placeholder="fx fældede en bjørn ved Isfjord">
+          <button class="ghost" onclick="gem('bedrift')">Tilføj</button>
+        </div>
+      </div>
+      <div class="felt">
+        <label>Fri fortælling om dig (skriv løs — det væves ind i din saga)</label>
+        <textarea id="dInfo" rows="3" placeholder="fx Jeg voksede op ved havet og drømte om fjerne kyster…"></textarea>
+        <div class="row"><button class="ghost" onclick="gem('info')">Tilføj til min saga</button></div>
+      </div>
+
+      <div class="row">
+        <button class="go" id="btnKvaed">Kvæd næste kapitel</button>
+        <button class="ghost" onclick="nulstilDin()">Nulstil min saga</button>
+      </div>
+
+      <div id="kendt" class="kendt"></div>
+      <div class="sep"></div>
+      <div id="sagaTekst">
+        <p class="hint">Giv skjalden dit navn og en dåd, og bed ham så kvæde det første kapitel.
+          For hver ting du fortæller, vokser din saga videre.</p>
+      </div>
     </div>
   </div>
 </div>
@@ -74,33 +129,22 @@
 <script>
 const $ = s => document.querySelector(s);
 
-// Forslag der viser hvad skjalden kan (klik = send; "…" = udfyld selv)
-const FORSLAG = [
-  "Hvem er du, og hvad kan du?",
-  "Hvem er Odin?",
-  "Fortæl en saga om Ragnarok",
-  "Fortæl en saga over flere ture — jeg styrer",
-  "Kvæd et vers om havet",
-  "Jeg hedder … og jeg …",
-  "Digt en saga om mig",
-  "Lav en saga af det vi har talt om",
-  "Glem alt om mig",
-];
-const fbox = $('#forslag');
-FORSLAG.forEach(t=>{
-  const b=document.createElement('button'); b.className='sug'; b.textContent=t;
-  b.onclick=()=>{
-    if(t.includes('…')){ $('#chatInput').value=t.replace(/…/g,''); $('#chatInput').focus(); }
-    else { $('#chatInput').value=t; sendChat(); }
-  };
-  fbox.appendChild(b);
-});
+function visFane(navn){
+  const f = navn==='fortael';
+  $('#tabFortael').classList.toggle('active',f);
+  $('#tabDin').classList.toggle('active',!f);
+  $('#paneFortael').classList.toggle('active',f);
+  $('#paneDin').classList.toggle('active',!f);
+  if(!f) hentDin();
+}
 
 async function post(url, body){
   const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body||{})});
   return r.json();
 }
+
+/* ---------- Fane 1: Saga-fortælling ---------- */
 function bubble(who, cls, text){
   const hint=$('#log .hint'); if(hint) hint.remove();
   const d=document.createElement('div'); d.className='msg '+cls;
@@ -108,46 +152,74 @@ function bubble(who, cls, text){
   d.querySelector('.body').textContent=text; $('#log').appendChild(d);
   $('#log').scrollTop=$('#log').scrollHeight; return d;
 }
-async function sendChat(){
-  const t=$('#chatInput').value.trim(); if(!t) return;
-  $('#chatInput').value=''; bubble('Du','me',t);
-  const wait=bubble('Skjald','sk','Skjalden kvæder ved ilden…');
+async function fortael(text){
+  if(!text) return;
+  $('#inp').value=''; bubble('Du','me',text);
+  const wait=bubble('Skjald','sk','Skjalden lytter ved ilden…');
   wait.querySelector('.body').classList.add('thinking');
-  $('#chatSend').disabled=true;
+  $('#btnSaga').disabled=true; $('#btnSend').disabled=true;
   try{
-    const j=await post('/api/chat',{text:t});
+    const j=await post('/api/fortael',{text});
     const body=wait.querySelector('.body'); body.classList.remove('thinking');
     body.textContent=j.svar||('('+(j.error||'tavshed')+')');
     if(j.skrift){
       const kd=document.createElement('div'); kd.className='kilder';
-      let tx='📜 Kvædet efter '+j.skrift;
-      if(j.kilder && j.kilder.length) tx+='  ·  via dansk Wikipedia: '+[...new Set(j.kilder)].join(', ');
-      kd.textContent=tx; wait.appendChild(kd);
-    } else if(j.kilder && j.kilder.length){
-      const kd=document.createElement('div'); kd.className='kilder';
-      kd.textContent='📚 Kilder: '+[...new Set(j.kilder)].join(', ');
-      wait.appendChild(kd);
-    }
-    if(j.learned && j.learned.length){
-      const note=document.createElement('div'); note.className='learned';
-      note.textContent='🖉 Skjalden husker nu: '+j.learned.join('; ');
-      $('#log').appendChild(note);
+      kd.textContent='📜 Kvædet efter '+j.skrift; wait.appendChild(kd);
     }
   }catch(e){ wait.querySelector('.body').textContent='(skjalden tav — fejl)'; }
-  $('#chatSend').disabled=false; $('#log').scrollTop=$('#log').scrollHeight;
+  $('#btnSaga').disabled=false; $('#btnSend').disabled=false;
+  $('#log').scrollTop=$('#log').scrollHeight;
 }
-$('#chatSend').onclick=sendChat;
-$('#chatInput').addEventListener('keydown',e=>{
-  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}
+$('#btnSaga').onclick=()=>fortael('fortæl mig en saga');
+$('#btnSend').onclick=()=>fortael($('#inp').value.trim());
+$('#inp').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();fortael($('#inp').value.trim());}
 });
 
-// Ny samtale: rydder samtalen på serveren (men skjalden husker stadig hvem du er)
-async function newChat(){
-  await post('/api/nysamtale',{});
-  $('#log').innerHTML='<p class="hint">Ny samtale, herre. Skjalden husker stadig hvem du er — sig hvad du vil.</p>';
-  $('#chatInput').focus();
+/* ---------- Fane 2: Din saga ---------- */
+function renderDin(j){
+  $('#sagatitel').textContent=j.titel||'Din saga';
+  $('#tabDin').textContent=(j.navn? j.navn+'s saga' : 'Din saga');
+  if(j.navn) $('#dNavn').value=j.navn;
+  // kendt om dig
+  let k='';
+  if((j.bedrifter||[]).length) k+='<div>Bedrifter: '+j.bedrifter.map(b=>'<span class="chip">'+esc(b)+'</span>').join('')+'</div>';
+  if((j.fakta||[]).length) k+='<div style="margin-top:6px">Fortalt: '+j.fakta.map(f=>'<span class="chip">'+esc(f)+'</span>').join('')+'</div>';
+  $('#kendt').innerHTML=k;
+  // selve sagaen (kapitler)
+  const kap=j.kapitler||[];
+  if(!kap.length){
+    $('#sagaTekst').innerHTML='<p class="hint">Giv skjalden dit navn og en dåd, og bed ham så '
+      +'kvæde det første kapitel. For hver ting du fortæller, vokser din saga videre.</p>';
+  }else{
+    $('#sagaTekst').innerHTML=kap.map((t,i)=>
+      '<div class="kapitel"><div class="nr">Kapitel '+(i+1)+'</div>'+esc(t)+'</div>').join('');
+  }
 }
-$('#newChat').onclick=newChat;
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+async function hentDin(){
+  const r=await fetch('/api/dinsaga'); renderDin(await r.json());
+}
+async function gem(felt){
+  const body={handling:'gem'};
+  if(felt==='navn'){ body.navn=$('#dNavn').value.trim(); if(!body.navn) return; }
+  if(felt==='bedrift'){ body.bedrift=$('#dBedrift').value.trim(); if(!body.bedrift) return; $('#dBedrift').value=''; }
+  if(felt==='info'){ body.info=$('#dInfo').value.trim(); if(!body.info) return; $('#dInfo').value=''; }
+  renderDin(await post('/api/dinsaga',body));
+}
+$('#btnKvaed').onclick=async()=>{
+  $('#btnKvaed').disabled=true;
+  const prev=$('#btnKvaed').textContent; $('#btnKvaed').textContent='Skjalden kvæder…';
+  const j=await post('/api/dinsaga',{handling:'kvaed'});
+  if(j.fejl){ alert(j.fejl); }
+  else { renderDin(j); }
+  $('#btnKvaed').disabled=false; $('#btnKvaed').textContent=prev;
+};
+async function nulstilDin(){
+  if(!confirm('Nulstil din saga helt? Navn, bedrifter og alle kapitler slettes (skjalden selv består).')) return;
+  renderDin(await post('/api/dinsaga',{handling:'nulstil'}));
+}
 </script>
 </body>
 </html>
