@@ -82,10 +82,39 @@ def skald_opener(text):
     return _OPENERS[len(text) % len(_OPENERS)]
 
 
-def _system(memory_context=""):
+def intro_text():
+    """Fast, i-rolle præsentation af skjalden + hans evner (intet model-kald -> altid pålidelig).
+
+    Nødvendig fordi 'hvem er du / hvad kan du' ellers gik i grundet chat og fik modellen
+    til at opdigte en falsk identitet ('Gøndul, sendt af din fjende') i stedet for at svare.
+    """
+    return (
+        "Hør, herre — jeg er din skjald, ordets smed ved ilden, og jeg står i din tjeneste. "
+        "Sig blot til, så kvæder jeg. Dette kan disse hænder:\n\n"
+        "• Fortælle sagaer om guder og helte — sig \"fortæl en saga om Ragnarok\", og jeg "
+        "nævner tillige fra hvilket skrift den stammer.\n"
+        "• Digte DIN egen saga af dine bedrifter — sig \"digt en saga om mig\".\n"
+        "• Væve en saga af selve vores samtale — sig \"lav en saga af vores snak\".\n"
+        "• Møde din dag — betro mig en møgdag eller en sejr, og jeg svarer med et sagn eller "
+        "vers, der passer.\n"
+        "• Huske dig — fortæl hvem du er (\"jeg hedder …\") og dine dåd, så bærer jeg dem med "
+        "mig, også næste gang. Sig \"glem alt\", og jeg glemmer.\n\n"
+        "Så sig frem, herre — hvad skal det være?")
+
+
+def _inject_history(msgs, history):
+    """Læg de nyeste rå samtale-ture ind (selve resuméet ligger i system-beskeden)."""
+    for turn in (history or [])[-8:]:
+        msgs.append({"role": "user", "content": (turn.get("user") or "")[:200]})
+        msgs.append({"role": "assistant", "content": (turn.get("skald") or "")[:400]})
+
+
+def _system(memory_context="", resume=""):
     s = SYSTEM_PROMPT
     if memory_context:
         s += "\n\nDette ved du om din herre:\n" + memory_context
+    if resume:
+        s += "\n\nTidligere i jeres samtale spurgte/fortalte din herre om: " + resume
     return s
 
 
@@ -98,28 +127,24 @@ def modern_deflect_messages(user_text, memory_context=""):
     return msgs
 
 
-def chat_messages(user_text, memory_context="", history=None):
-    """Byg besked-listen: system + persona-anker + historik + ny ytring."""
-    msgs = [{"role": "system", "content": _system(memory_context)}]
+def chat_messages(user_text, memory_context="", history=None, resume=""):
+    """Byg besked-listen: system (+ resumé) + persona-anker + nyeste historik + ny ytring."""
+    msgs = [{"role": "system", "content": _system(memory_context, resume)}]
     msgs.extend(_ANCHOR)
-    for turn in (history or [])[-4:]:  # kun de nyeste ture, afkortet -> holder prompten under 4096
-        msgs.append({"role": "user", "content": (turn.get("user") or "")[:200]})
-        msgs.append({"role": "assistant", "content": (turn.get("skald") or "")[:400]})
+    _inject_history(msgs, history)
     msgs.append({"role": "user", "content": user_text})
     return msgs
 
 
-def grounded_chat_messages(user_text, passages, memory_context="", history=None):
+def grounded_chat_messages(user_text, passages, memory_context="", history=None, resume=""):
     """Som chat_messages, men med de hentede vidensstykker (RAG) lige før spørgsmålet.
 
     At lægge kilderne umiddelbart før spørgsmålet grounder svaret langt bedre end
     at gemme dem i system-prompten (modellen lytter mest til det nære).
     """
-    msgs = [{"role": "system", "content": _system(memory_context)}]
+    msgs = [{"role": "system", "content": _system(memory_context, resume)}]
     msgs.extend(_ANCHOR)
-    for turn in (history or [])[-4:]:  # kun de nyeste ture, afkortet -> holder prompten under 4096
-        msgs.append({"role": "user", "content": (turn.get("user") or "")[:200]})
-        msgs.append({"role": "assistant", "content": (turn.get("skald") or "")[:400]})
+    _inject_history(msgs, history)
     ref = ("Gamle overleveringer om emnet. Byg dine KENDSGERNINGER på dem — navne, slægt, "
            "steder og ting skal stamme herfra (opdigt ikke egne, og bland ikke gudernes "
            "ejendele sammen) — men fortæl frit, levende og billedrigt i din egen skjald-"
@@ -200,9 +225,9 @@ def conversation_saga_messages(navn, history, bedrifter=None, memory_context="")
     return msgs
 
 
-def comfort_messages(user_text, memory_context="", history=None):
+def comfort_messages(user_text, memory_context="", history=None, resume=""):
     """Når herren deler sin dag/følelse: mød ham med et passende sagn, saga-stump eller vers."""
-    s = _system(memory_context) + (
+    s = _system(memory_context, resume) + (
         "\n\nLige nu betror din herre dig sin dag eller sine følelser. Svar IKKE med moderne "
         "trøst, gode råd eller selvhjælp, og gentag ikke bare hans ord. Opdigt aldrig nye "
         "guder eller slægtskaber, og brug ALDRIG nutids-ord (som adrenalin, stress, energi). "
@@ -212,9 +237,7 @@ def comfort_messages(user_text, memory_context="", history=None):
         "føler, og som trøster ham i modgang eller fejrer ham i medgang.")
     msgs = [{"role": "system", "content": s}]
     msgs.extend(_MOOD_ANCHOR)  # vis præcis den ønskede lore-adfærd (few-shot slår instruks)
-    for turn in (history or [])[-4:]:  # kun de nyeste ture, afkortet -> holder prompten under 4096
-        msgs.append({"role": "user", "content": (turn.get("user") or "")[:200]})
-        msgs.append({"role": "assistant", "content": (turn.get("skald") or "")[:400]})
+    _inject_history(msgs, history)
     msgs.append({"role": "user", "content": user_text})
     return msgs
 

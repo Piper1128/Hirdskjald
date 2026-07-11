@@ -40,6 +40,10 @@
   .sug{background:#241d14;border:1px solid var(--line);color:var(--ink);border-radius:999px;
     padding:6px 13px;font-family:inherit;font-size:14px;cursor:pointer}
   .sug:hover{border-color:var(--gold);color:var(--gold)}
+  .topbar{display:flex;justify-content:flex-end;margin-bottom:8px}
+  button.newchat{background:transparent;color:var(--dim);border:1px solid var(--line);
+    border-radius:999px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:13px}
+  button.newchat:hover{border-color:var(--gold);color:var(--gold)}
 </style>
 </head>
 <body>
@@ -50,6 +54,10 @@
 
 <div class="wrap">
   <div class="card">
+    <div class="topbar">
+      <button id="newChat" class="newchat"
+        title="Ryd samtalen — skjalden husker stadig hvem du er (navn og bedrifter)">↺ Ny samtale</button>
+    </div>
     <div id="log" class="log">
       <p class="hint">Hils skjalden, spørg om guderne, eller bed om et kvad. Sig bare hvad du vil — prøv fx et af forslagene.</p>
     </div>
@@ -68,6 +76,7 @@ const $ = s => document.querySelector(s);
 
 // Forslag der viser hvad skjalden kan (klik = send; "…" = udfyld selv)
 const FORSLAG = [
+  "Hvem er du, og hvad kan du?",
   "Hvem er Odin?",
   "Fortæl en saga om Ragnarok",
   "Kvæd et vers om havet",
@@ -130,6 +139,14 @@ $('#chatSend').onclick=sendChat;
 $('#chatInput').addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}
 });
+
+// Ny samtale: rydder samtalen på serveren (men skjalden husker stadig hvem du er)
+async function newChat(){
+  await post('/api/nysamtale',{});
+  $('#log').innerHTML='<p class="hint">Ny samtale, herre. Skjalden husker stadig hvem du er — sig hvad du vil.</p>';
+  $('#chatInput').focus();
+}
+$('#newChat').onclick=newChat;
 </script>
 </body>
 </html>

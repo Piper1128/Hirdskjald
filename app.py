@@ -67,6 +67,13 @@ _META_RE = re.compile(
     r"(?:menneske|person|rigtig|ægte|levende|kunstig|et program)|"
     r"hvem (?:har )?(?:lavet|skabt|programmeret|kodet) dig",
     re.IGNORECASE)
+# Hilsen eller "hvem er du / hvad kan du" -> fast i-rolle intro (ingen grunding, intet opdigt).
+# Uden denne gik "hvem er du og hvad kan du" i grundet chat og opdigtede en falsk identitet.
+_INTRO_RE = re.compile(
+    r"\bhvem (?:er du|du er)\b|\bhvad (?:kan|laver) du\b|hvad kan du (?:hjælpe|gøre)|"
+    r"introducer dig|præsent(?:er|ér) dig|hvad er (?:det her|dette)|"
+    r"^(?:hej|halløj|goddag|hejsa|hallo|yo)\b",
+    re.IGNORECASE)
 
 
 @app.route("/")
@@ -77,6 +84,30 @@ def index():
 @app.route("/favicon.ico")
 def favicon():
     return send_from_directory(HERE, "skjald.ico", mimetype="image/x-icon")
+
+
+@app.route("/api/nysamtale", methods=["POST"])
+def nysamtale():
+    """Ryd KUN samtalen (historik + resumé); behold hvem-du-er (navn/bedrifter/fakta)."""
+    mem.clear_conversation()
+    return jsonify(ok=True)
+
+
+def _maybe_summarize():
+    """Fold ældre ture ind i et kort, EKSTRAKTIVT resumé (herrens egne emner), så konteksten
+    aldrig sprænger 4096. Ekstraktivt — ikke LLM-genereret — fordi en 7B hallucinerer resuméer
+    (den opdigtede "Herre: Jens Jensen"). En liste af hans egne ord kan ikke hallucineres."""
+    if not mem.needs_summary():
+        return
+    turns, end = mem.to_summarize()
+    olds = [(t.get("user") or "").strip()[:80] for t in turns]
+    olds = [u for u in olds if u]
+    if not olds:
+        mem.set_resume(mem.data["resume"], end)
+        return
+    prev = mem.data["resume"]
+    combined = "; ".join(([prev] if prev else []) + olds)
+    mem.set_resume(combined[-900:], end)  # hold resuméet kort
 
 
 @app.route("/api/chat", methods=["POST"])
@@ -137,20 +168,30 @@ def chat():
 
     # --- Herren deler sin dag/følelse -> mød ham med et passende sagn/saga/vers ---
     if _MOOD_RE.search(text):
-        msgs = persona.comfort_messages(text, mem.context(), mem.recent(10))
+        _maybe_summarize()
+        msgs = persona.comfort_messages(text, mem.context(),
+                                        mem.injected_history(), mem.data["resume"])
         # prefill tvinger skjalden ind i lore-sporet fremfor moderne trøst
         svar = skald.reply(msgs, max_new_tokens=420, temperature=0.6,
                            seed="Hør et sagn, herre: ")
         mem.add_turn(text, svar)
         return jsonify(svar=svar)
 
+    # --- Hilsen / "hvem er du, hvad kan du" -> fast i-rolle intro (ingen grunding, intet opdigt) ---
+    if _INTRO_RE.search(text):
+        svar = persona.intro_text()
+        mem.add_turn(text, svar)
+        return jsonify(svar=svar)
+
     # --- Almindelig samtale (default): RAG-grundet + lærer om dig ---
+    _maybe_summarize()
     passages = knowledge.retrieve(text, k=3) if knowledge else []
+    hist = mem.injected_history()
     if passages:
         msgs = persona.grounded_chat_messages(
-            text, [c for _, c in passages], mem.context(), mem.recent(10))
+            text, [c for _, c in passages], mem.context(), hist, mem.data["resume"])
     else:
-        msgs = persona.chat_messages(text, mem.context(), mem.recent(10))
+        msgs = persona.chat_messages(text, mem.context(), hist, mem.data["resume"])
     # stemme-lås: en kort skjald-åbning prefill'es, så svaret ikke falder i leksikon-tone
     svar = skald.reply(msgs, max_new_tokens=384, temperature=0.7,
                        seed=persona.skald_opener(text))

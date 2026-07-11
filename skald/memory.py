@@ -9,7 +9,8 @@ import os
 
 
 def _default():
-    return {"navn": "", "bedrifter": [], "fakta": [], "historik": []}
+    return {"navn": "", "bedrifter": [], "fakta": [], "historik": [],
+            "resume": "", "resume_count": 0}
 
 
 class Memory:
@@ -56,11 +57,40 @@ class Memory:
 
     def add_turn(self, user, skald):
         self.data["historik"].append({"user": user, "skald": skald})
-        self.data["historik"] = self.data["historik"][-40:]  # behold de seneste
+        overflow = len(self.data["historik"]) - 60
+        if overflow > 0:  # tab de ældste, og flyt resumé-markøren med, så indeks holder
+            self.data["historik"] = self.data["historik"][overflow:]
+            self.data["resume_count"] = max(0, self.data["resume_count"] - overflow)
         self.save()
 
     def recent(self, n=6):
         return self.data["historik"][-n:]
+
+    # --- Rullende samtale-hukommelse: ældre ture foldes ind i et kort resumé ---
+    def needs_summary(self, keep_raw=4, batch=4):
+        """Sandt når nok gamle ture har hobet sig op til at folde ind i resuméet."""
+        return len(self.data["historik"]) - self.data["resume_count"] > keep_raw + batch
+
+    def to_summarize(self, keep_raw=4):
+        """De ældre, endnu-ikke-resumerede ture (alt undtagen de seneste keep_raw)."""
+        end = len(self.data["historik"]) - keep_raw
+        return self.data["historik"][self.data["resume_count"]:end], end
+
+    def set_resume(self, resume, covered_end):
+        self.data["resume"] = (resume or "").strip()
+        self.data["resume_count"] = covered_end
+        self.save()
+
+    def injected_history(self):
+        """De rå ture der endnu ikke er foldet ind i resuméet (til prompten)."""
+        return self.data["historik"][self.data["resume_count"]:]
+
+    def clear_conversation(self):
+        """Ryd KUN samtalen (historik + resumé); behold navn, bedrifter og fakta."""
+        self.data["historik"] = []
+        self.data["resume"] = ""
+        self.data["resume_count"] = 0
+        self.save()
 
     def context(self):
         """Render hvad skjalden ved om herren, til indfletning i system-prompten."""
