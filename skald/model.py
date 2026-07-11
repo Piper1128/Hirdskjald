@@ -36,7 +36,7 @@ class Skald:
         enc = self.tok(text, return_tensors="pt").to(self.device)
         out = self.model.generate(
             **enc, max_new_tokens=max_new_tokens, do_sample=True,
-            temperature=temperature, top_p=top_p, repetition_penalty=1.15,
+            temperature=temperature, top_p=top_p, repetition_penalty=1.1,
             no_repeat_ngram_size=4,  # bryder "en valkyrie, en valkyrie…"-løkker
             pad_token_id=self.tok.eos_token_id)
         gen = self.tok.decode(

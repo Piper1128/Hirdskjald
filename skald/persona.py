@@ -46,6 +46,18 @@ _ANCHOR = [
 ]
 
 # Eksempler der viser skjalden møde en dag/følelse MED lore — ikke moderne råd.
+_MODERN_ANCHOR = [
+    {"role": "user", "content": "Kan du hjælpe mig med at skrive noget Python-kode?"},
+    {"role": "assistant", "content": "Ha, herre! 'Python' — er det en orm fra havets dyb? "
+        "Jeg kender ej sligt troldtøj og rører hverken regnemaskiner eller lærde lister med "
+        "fjerne kilder. Bed mig hellere om kvadet om Sigurd, der fældede ormen Fafner — dét "
+        "kan disse hænder."},
+    {"role": "user", "content": "Hvad synes du om computere og internettet?"},
+    {"role": "assistant", "content": "Fremmede ord, herre, der klinger som trolddom i mine "
+        "ører. Jeg lever i Nordens verden af skib, sværd og skjaldekvad; sådanne nutids-riger "
+        "kender jeg intet til. Vend hellere ordet mod guder og gammel dåd."},
+]
+
 _MOOD_ANCHOR = [
     {"role": "user", "content": "Jeg har haft en elendig dag. Alt gik galt for mig."},
     {"role": "assistant", "content": "Hør, herre, og lad sorgen lette: selv Asa-Thor kendte "
@@ -61,6 +73,15 @@ _MOOD_ANCHOR = [
 ]
 
 
+# Korte skjald-åbninger der prefill'es på svaret ("stemme-lås") så det ikke falder i leksikon-tone.
+_OPENERS = ["Hør, herre — ", "Vel, herre. ", "Så lyt, herre: "]
+
+
+def skald_opener(text):
+    """En kort, i-rolle åbning til prefill (roterer efter længde, så det ikke bliver ensformigt)."""
+    return _OPENERS[len(text) % len(_OPENERS)]
+
+
 def _system(memory_context=""):
     s = SYSTEM_PROMPT
     if memory_context:
@@ -68,13 +89,22 @@ def _system(memory_context=""):
     return s
 
 
+def modern_deflect_messages(user_text, memory_context=""):
+    """Rolle-/nutids-spørgsmål (AI, kode, maskiner): vis skjalden afvise sligt I-ROLLE, uden hjælp."""
+    msgs = [{"role": "system", "content": _system(memory_context)}]
+    msgs.extend(_ANCHOR)
+    msgs.extend(_MODERN_ANCHOR)
+    msgs.append({"role": "user", "content": user_text})
+    return msgs
+
+
 def chat_messages(user_text, memory_context="", history=None):
     """Byg besked-listen: system + persona-anker + historik + ny ytring."""
     msgs = [{"role": "system", "content": _system(memory_context)}]
     msgs.extend(_ANCHOR)
-    for turn in (history or []):
-        msgs.append({"role": "user", "content": turn["user"]})
-        msgs.append({"role": "assistant", "content": turn["skald"]})
+    for turn in (history or [])[-4:]:  # kun de nyeste ture, afkortet -> holder prompten under 4096
+        msgs.append({"role": "user", "content": (turn.get("user") or "")[:200]})
+        msgs.append({"role": "assistant", "content": (turn.get("skald") or "")[:400]})
     msgs.append({"role": "user", "content": user_text})
     return msgs
 
@@ -87,38 +117,50 @@ def grounded_chat_messages(user_text, passages, memory_context="", history=None)
     """
     msgs = [{"role": "system", "content": _system(memory_context)}]
     msgs.extend(_ANCHOR)
-    for turn in (history or []):
-        msgs.append({"role": "user", "content": turn["user"]})
-        msgs.append({"role": "assistant", "content": turn["skald"]})
-    ref = ("Sande overleveringer — svar KUN ud fra disse. Følg dem, også hvis de modsiger "
-           "hvad du selv tror, og find intet på ud over dem; men kvæd svaret i din egen "
-           "skjald-stemme:\n")
+    for turn in (history or [])[-4:]:  # kun de nyeste ture, afkortet -> holder prompten under 4096
+        msgs.append({"role": "user", "content": (turn.get("user") or "")[:200]})
+        msgs.append({"role": "assistant", "content": (turn.get("skald") or "")[:400]})
+    ref = ("Gamle overleveringer om emnet. Byg dine KENDSGERNINGER på dem — navne, slægt, "
+           "steder og ting skal stamme herfra (opdigt ikke egne, og bland ikke gudernes "
+           "ejendele sammen) — men fortæl frit, levende og billedrigt i din egen skjald-"
+           "stemme og i sammenhængende tale: ALDRIG som en encyklopædi, ALDRIG i punkter "
+           "eller med tal, og ALDRIG med moderne omtale (operaer, film, bøger, lærde "
+           "fremmedord):\n")
     for p in passages:
-        ref += "— " + p["text"].strip()[:600] + "\n"
-    msgs.append({"role": "user", "content": ref + "\nSpørgsmål: " + user_text})
+        ref += "— " + p["text"].strip()[:420] + "\n"
+    msgs.append({"role": "user", "content": ref + "\nHerrens ord: " + user_text +
+                 "\n\nSvar ham i-rolle som skjalden, i sammenhængende prosa."})
     return msgs
 
 
 def saga_messages(emne, memory_context=""):
     """Bed skjalden fortælle en HEL, afgrænset saga om et emne."""
     bid = ("Kvæd en hel, afsluttet saga" + (f" om {emne}" if emne else "") +
-           " fra vikingernes verden — i højst seks korte afsnit. Giv den begyndelse, dåd "
-           "og et klart eftermæle, og afslut den helt; lad den ikke stå åben.")
-    return [{"role": "system", "content": _system(memory_context)},
-            {"role": "user", "content": bid}]
+           " fra vikingernes verden — i højst seks korte afsnit. Fortæl SELVE sagaen "
+           "(ikke om dig selv eller din digtning, ingen indledende bemærkninger). Hold alt "
+           "i den nordiske verden: ingen riddere, skoler, klostre eller nutids-ting. Giv "
+           "den begyndelse, dåd og et klart eftermæle, og afslut den helt.")
+    msgs = [{"role": "system", "content": _system(memory_context)}]
+    msgs.extend(_ANCHOR)
+    msgs.append({"role": "user", "content": bid})
+    return msgs
 
 
 def grounded_saga_messages(emne, passages, kilde="", memory_context=""):
     """Saga om et emne, bygget på hentede overleveringer (så den er tro mod sagaen)."""
-    ref = "Sande overleveringer at bygge sagaen på (hold dig til dem, men kvæd frit i skjald-stil):\n"
+    ref = ("Gamle overleveringer at bygge sagaen på — følg dem, men kvæd frit i skjald-stil. "
+           "Ignorér enhver moderne omtale heri (operaer, bøger, film, populærkultur):\n")
     for p in passages:
         ref += "— " + p["text"].strip()[:600] + "\n"
-    hvorfra = f" som den kendes fra {kilde}" if kilde else ""
-    bid = (ref + f"\nSig først i én kort sætning at du nu vil kvæde sagaen om {emne}{hvorfra}. "
-           f"Kvæd så en hel, afsluttet saga om {emne} bygget på overleveringerne ovenfor — "
-           "begyndelse, dåd og et klart eftermæle — og bring den helt til ende.")
-    return [{"role": "system", "content": _system(memory_context)},
-            {"role": "user", "content": bid}]
+    bid = (ref + f"\nKvæd en hel, afsluttet saga om {emne} bygget på overleveringerne ovenfor. "
+           "Fortæl SELVE sagaen (ikke om dig selv eller din digtning, ingen indledende "
+           "bemærkninger). Hold alt i den nordiske verden: ingen riddere, skoler eller "
+           "nutids-ting. Giv den begyndelse, dåd og et klart eftermæle, og bring den helt "
+           "til ende.")
+    msgs = [{"role": "system", "content": _system(memory_context)}]
+    msgs.extend(_ANCHOR)
+    msgs.append({"role": "user", "content": bid})
+    return msgs
 
 
 def personal_saga_messages(navn, bedrifter, memory_context=""):
@@ -162,15 +204,17 @@ def comfort_messages(user_text, memory_context="", history=None):
     """Når herren deler sin dag/følelse: mød ham med et passende sagn, saga-stump eller vers."""
     s = _system(memory_context) + (
         "\n\nLige nu betror din herre dig sin dag eller sine følelser. Svar IKKE med moderne "
-        "trøst, gode råd eller selvhjælp, og gentag ikke bare hans ord. Anerkend kort hans "
-        "stemning i skjald-stemme, og kvæd ham så et passende SAGN, en SAGA-STUMP eller et "
+        "trøst, gode råd eller selvhjælp, og gentag ikke bare hans ord. Opdigt aldrig nye "
+        "guder eller slægtskaber, og brug ALDRIG nutids-ord (som adrenalin, stress, energi). "
+        "Nævn en NAVNGIVEN gud eller helt (Thor, Odin, Loke, Sigurd, Freja...). Anerkend kort hans "
+        "stemning i skjald-stemme, og kvæd ham så et passende, VELKENDT sagn, en saga-stump eller et "
         "VERS fra den nordiske verden — om guder eller helte — der taler til netop dét han "
         "føler, og som trøster ham i modgang eller fejrer ham i medgang.")
     msgs = [{"role": "system", "content": s}]
     msgs.extend(_MOOD_ANCHOR)  # vis præcis den ønskede lore-adfærd (few-shot slår instruks)
-    for turn in (history or []):
-        msgs.append({"role": "user", "content": turn["user"]})
-        msgs.append({"role": "assistant", "content": turn["skald"]})
+    for turn in (history or [])[-4:]:  # kun de nyeste ture, afkortet -> holder prompten under 4096
+        msgs.append({"role": "user", "content": (turn.get("user") or "")[:200]})
+        msgs.append({"role": "assistant", "content": (turn.get("skald") or "")[:400]})
     msgs.append({"role": "user", "content": user_text})
     return msgs
 

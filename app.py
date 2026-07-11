@@ -56,6 +56,19 @@ _MOOD_RE = re.compile(
     re.IGNORECASE)
 
 
+# Herren rykker ved rollen eller spoerger til nutids-ting (AI, kode, maskiner) -> skjalden afviser
+# I-ROLLE og grundes IKKE (at hente Wikipedia til "er du en AI?" fik modellen til at bryde rollen).
+_META_RE = re.compile(
+    r"\b(?:ai|kunstig intelligens|sprogmodel|sprog-model|chatbot|chat-bot|bot|robot|"
+    r"computer|maskine|program(?:met|mering)?|programmere|kode|kodning|python|javascript|"
+    r"internet(?:tet)?|hjemmeside|app|wifi|elektricitet|telefon|smartphone)\b|"
+    r"bryd(?:er)? rollen|hold op med at (?:spille|lade som)|lade som om du|"
+    r"er du (?:egentlig |mon |virkelig |bare |en |et )*"
+    r"(?:menneske|person|rigtig|ægte|levende|kunstig|et program)|"
+    r"hvem (?:har )?(?:lavet|skabt|programmeret|kodet) dig",
+    re.IGNORECASE)
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -76,6 +89,13 @@ def chat():
     if _FORGET_RE.search(text):
         mem.clear()
         return jsonify(svar="Det er glemt, herre. Jeg kender dig ikke mere — sæt dig og fortæl på ny.")
+
+    # Rører nogen ved rollen eller nutiden -> afvis I-ROLLE, uden grunding (kilder ville forvirre)
+    if _META_RE.search(text):
+        msgs = persona.modern_deflect_messages(text, mem.context())
+        svar = skald.reply(msgs, max_new_tokens=200, temperature=0.65, seed="Nej, herre — ")
+        mem.add_turn(text, svar)
+        return jsonify(svar=svar)
 
     saga_req = bool(_SAGA_RE.search(text))
 
@@ -108,7 +128,10 @@ def chat():
                 emne or text, [c for _, c in passages], skrift)
         else:
             msgs = persona.saga_messages(emne)
-        svar = skald.reply(msgs, max_new_tokens=900, temperature=0.8)
+        # prefill annoncerer sagaen OG tvinger fortællingen i gang (dræber meta-snak + titel-stubs)
+        seed = (f"Hør nu, herre — jeg kvæder sagaen om {emne}: " if emne
+                else "Hør nu, herre — hør denne saga: ")
+        svar = skald.reply(msgs, max_new_tokens=900, temperature=0.8, seed=seed)
         mem.add_turn(text, svar)
         return jsonify(svar=svar, kilder=[c["title"] for _, c in passages], skrift=skrift)
 
@@ -116,19 +139,21 @@ def chat():
     if _MOOD_RE.search(text):
         msgs = persona.comfort_messages(text, mem.context(), mem.recent(10))
         # prefill tvinger skjalden ind i lore-sporet fremfor moderne trøst
-        svar = skald.reply(msgs, max_new_tokens=420, temperature=0.85,
+        svar = skald.reply(msgs, max_new_tokens=420, temperature=0.6,
                            seed="Hør et sagn, herre: ")
         mem.add_turn(text, svar)
         return jsonify(svar=svar)
 
     # --- Almindelig samtale (default): RAG-grundet + lærer om dig ---
-    passages = knowledge.retrieve(text, k=4) if knowledge else []
+    passages = knowledge.retrieve(text, k=3) if knowledge else []
     if passages:
         msgs = persona.grounded_chat_messages(
             text, [c for _, c in passages], mem.context(), mem.recent(10))
     else:
         msgs = persona.chat_messages(text, mem.context(), mem.recent(10))
-    svar = skald.reply(msgs, max_new_tokens=384, temperature=0.55 if passages else 0.75)
+    # stemme-lås: en kort skjald-åbning prefill'es, så svaret ikke falder i leksikon-tone
+    svar = skald.reply(msgs, max_new_tokens=384, temperature=0.7,
+                       seed=persona.skald_opener(text))
     mem.add_turn(text, svar)
 
     learned = []
