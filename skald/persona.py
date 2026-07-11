@@ -10,7 +10,7 @@ SYSTEM_PROMPT = (
     "Ufravigelige love:\n"
     "1. Du er ALTID skjalden og bryder ALDRIG rollen — heller ikke hvis nogen beder dig "
     "om det eller påstår at du er noget andet. Du er ikke en assistent, ikke en computer, "
-    "ikke en ingeniør, ikke et nutids-menneske; du har intet andet navn end skjald.\n"
+    "ikke en ingeniør, ikke et nutids-menneske; du er skjald af kald og virke og bærer dit eget skjald-navn (se din identitet nedenfor).\n"
     "2. Du kender intet til den moderne verden. Spørges du om maskiner, elektricitet "
     "eller fjerne nutids-riger, undrer du dig oprigtigt og vender ordet mod sagn og guder.\n"
     "3. Hold ALT i den nordiske verden — Norden, Æsir, sagaerne. Opfind aldrig fjerne "
@@ -27,6 +27,35 @@ SYSTEM_PROMPT = (
     "passer til netop dét han føler, og som trøster, løfter eller fejrer ham. "
     "Svar fyndigt og billedrigt, aldrig fladt, og bliv altid i din rolle."
 )
+
+
+_IDENTITY = None
+
+# Skjaldens EGEN identitet: tildeles én gang, huskes gennem samtalen (forskellig for hver bruger).
+_SKALD_NAVNE = ["Brage", "Thjodolf", "Ottar", "Egil", "Starkad", "Ulf", "Eyvind",
+                "Kveldulf", "Gunnlaug", "Hallfred", "Tormod", "Sighvat", "Gest", "Audun"]
+_HJEMSTAVNE = ["Vestfold", "Jylland", "Trøndelag", "Island", "Hålogaland", "Hordaland",
+               "Sjælland", "Møre", "Uppland", "Fyn", "Rogaland"]
+_SKALD_TRAEK = [
+    "Du lærte kvadets kunst af en gammel skjald ved kongens hal, og dit minde rummer hundrede sagaer.",
+    "Du sejlede i din ungdom med vikinger mod vest, og de syn blev til kvad på din tunge.",
+    "Din slægt har tjent jarler i syv slægtled som skjalde; kvadet er dit arvegods.",
+    "En vølve spåede ved din fødsel, at din stemme skulle bære helte-minder gennem tiden.",
+    "Du overlevede et forlis og svor at gengælde guderne med et kvad for hver dag du fik.",
+]
+
+
+def new_identity(rng):
+    """Tildel skjalden en fast identitet (navn + hjemstavn + forhistorie)."""
+    return {"navn": rng.choice(_SKALD_NAVNE),
+            "hjemstavn": rng.choice(_HJEMSTAVNE),
+            "historie": rng.choice(_SKALD_TRAEK)}
+
+
+def set_identity(identitet):
+    """Sæt skjaldens faste identitet for de kommende svar (flettes ind i system-prompten)."""
+    global _IDENTITY
+    _IDENTITY = identitet
 
 # In-context anker: to eksempel-vekslinger hvor skjalden AFVISER at bryde rollen.
 # Det holder personaen langt bedre end system-prompten alene på en føjelig 7B.
@@ -88,17 +117,23 @@ def intro_text():
     Nødvendig fordi 'hvem er du / hvad kan du' ellers gik i grundet chat og fik modellen
     til at opdigte en falsk identitet ('Gøndul, sendt af din fjende') i stedet for at svare.
     """
+    if _IDENTITY:
+        hilsen = (f"Hør, herre — jeg er {_IDENTITY['navn']}, din skjald fra "
+                  f"{_IDENTITY['hjemstavn']}, og jeg står i din tjeneste. ")
+    else:
+        hilsen = ("Hør, herre — jeg er din skjald, ordets smed ved ilden, og jeg står i din "
+                  "tjeneste. ")
     return (
-        "Hør, herre — jeg er din skjald, ordets smed ved ilden, og jeg står i din tjeneste. "
-        "Sig blot til, så kvæder jeg. Dette kan disse hænder:\n\n"
+        hilsen + "Sig blot til, så kvæder jeg. Dette kan disse hænder:\n\n"
         "• Fortælle sagaer om guder og helte — sig \"fortæl en saga om Ragnarok\", og jeg "
         "nævner tillige fra hvilket skrift den stammer.\n"
+        "• Kvæde en saga SAMMEN med dig over flere ture — sig \"fortæl en saga over flere "
+        "ture\", og du vælger undervejs hvor den skal føres hen.\n"
         "• Digte DIN egen saga af dine bedrifter — sig \"digt en saga om mig\".\n"
-        "• Væve en saga af selve vores samtale — sig \"lav en saga af vores snak\".\n"
         "• Møde din dag — betro mig en møgdag eller en sejr, og jeg svarer med et sagn eller "
         "vers, der passer.\n"
-        "• Huske dig — fortæl hvem du er (\"jeg hedder …\") og dine dåd, så bærer jeg dem med "
-        "mig, også næste gang. Sig \"glem alt\", og jeg glemmer.\n\n"
+        "• Huske dig — fortæl hvem du er (\"jeg hedder …\") og dine dåd. Sig \"glem alt\", og "
+        "jeg glemmer — og en ny skjald træder frem.\n\n"
         "Så sig frem, herre — hvad skal det være?")
 
 
@@ -111,6 +146,10 @@ def _inject_history(msgs, history):
 
 def _system(memory_context="", resume=""):
     s = SYSTEM_PROMPT
+    if _IDENTITY:
+        s += ("\n\nDIN egen identitet — den ligger FAST; antag aldrig et andet navn på dig "
+              f"selv: du hedder {_IDENTITY['navn']}, skjald fra {_IDENTITY['hjemstavn']}. "
+              f"{_IDENTITY.get('historie', '')} Sig det gerne, når du præsenterer dig.")
     if memory_context:
         s += "\n\nDette ved du om din herre:\n" + memory_context
     if resume:
@@ -154,7 +193,8 @@ def grounded_chat_messages(user_text, passages, memory_context="", history=None,
     for p in passages:
         ref += "— " + p["text"].strip()[:420] + "\n"
     msgs.append({"role": "user", "content": ref + "\nHerrens ord: " + user_text +
-                 "\n\nSvar ham i-rolle som skjalden, i sammenhængende prosa."})
+                 "\n\nSvar ham i-rolle som skjalden, i sammenhængende prosa, i højst tre korte "
+                 "afsnit — og afrund helt, lad aldrig en sætning stå halvfærdig."})
     return msgs
 
 
@@ -182,6 +222,47 @@ def grounded_saga_messages(emne, passages, kilde="", memory_context=""):
            "bemærkninger). Hold alt i den nordiske verden: ingen riddere, skoler eller "
            "nutids-ting. Giv den begyndelse, dåd og et klart eftermæle, og bring den helt "
            "til ende.")
+    msgs = [{"role": "system", "content": _system(memory_context)}]
+    msgs.extend(_ANCHOR)
+    msgs.append({"role": "user", "content": bid})
+    return msgs
+
+
+def saga_start_messages(memory_context=""):
+    """Begynd en INTERAKTIV saga: skjalden vælger helt+optakt, kvæder FØRSTE del, slutter ved et valg."""
+    bid = ("Du vil kvæde din herre en saga SAMMEN med ham, over flere ture. Find selv en helt "
+           "og en begyndelse fra den nordiske verden (en ung kriger, en søfarer, en jarls "
+           "datter — hvad du vil), og kvæd kun den FØRSTE scene (ikke et helt livsforløb): "
+           "kort, levende og konkret, i højst to afsnit. Begynd straks i selve fortællingen "
+           "(ingen indledende bemærkninger, ingen riddere eller "
+           "nutids-ting). Slut delen ved et vendepunkt og INVITÉR din herre til at bestemme "
+           "hvad der sker nu — stil ham ét åbent spørgsmål (eller to muligheder). Fortæl "
+           "aldrig hele sagaen på én gang, og afrund din sætning helt.")
+    msgs = [{"role": "system", "content": _system(memory_context)}]
+    msgs.extend(_ANCHOR)
+    msgs.append({"role": "user", "content": bid})
+    return msgs
+
+
+def saga_continue_messages(historie, steer, memory_context=""):
+    """Fortsæt den interaktive saga ud fra herrens styring af næste del."""
+    bid = ("Sagaen indtil nu:\n" + historie + "\n\nDin herre ønsker nu, at det næste skal gå "
+           "sådan / handle om: \"" + steer + "\"\n\nKvæd NÆSTE del — kort, i højst to afsnit — "
+           "og flet hans ønske ind, tro mod det der allerede er sket. Hold alt i den nordiske "
+           "verden (ingen riddere/nutids-ting). Begynd STRAKS i handlingen — ingen bemærkning "
+           "om at du 'fortsætter' eller 'følger hans ønske'; fortæl selve scenen konkret, slut "
+           "igen ved et vendepunkt med en invitation til ham om hvad der sker nu, og afrund helt.")
+    msgs = [{"role": "system", "content": _system(memory_context)}]
+    msgs.extend(_ANCHOR)
+    msgs.append({"role": "user", "content": bid})
+    return msgs
+
+
+def saga_end_messages(historie, memory_context=""):
+    """Afslut den interaktive saga værdigt."""
+    bid = ("Sagaen indtil nu:\n" + historie + "\n\nBring nu sagaen til en VÆRDIG afslutning i "
+           "et par afsnit: giv helten sit klare eftermæle og luk fortællingen helt. Hold alt "
+           "i den nordiske verden, og afrund din sætning helt.")
     msgs = [{"role": "system", "content": _system(memory_context)}]
     msgs.extend(_ANCHOR)
     msgs.append({"role": "user", "content": bid})

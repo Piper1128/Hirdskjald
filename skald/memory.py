@@ -10,7 +10,9 @@ import os
 
 def _default():
     return {"navn": "", "bedrifter": [], "fakta": [], "historik": [],
-            "resume": "", "resume_count": 0}
+            "resume": "", "resume_count": 0,
+            "skjald": None,  # skjaldens EGEN faste identitet (navn/hjemstavn/forhistorie)
+            "saga": {"aktiv": False, "historie": "", "del": 0}}  # interaktiv saga over flere ture
 
 
 class Memory:
@@ -86,10 +88,37 @@ class Memory:
         return self.data["historik"][self.data["resume_count"]:]
 
     def clear_conversation(self):
-        """Ryd KUN samtalen (historik + resumé); behold navn, bedrifter og fakta."""
+        """Ryd KUN samtalen (historik + resumé + evt. igangværende saga); behold navn,
+        bedrifter, fakta OG skjaldens egen identitet (din skjald forbliver din)."""
         self.data["historik"] = []
         self.data["resume"] = ""
         self.data["resume_count"] = 0
+        self.data["saga"] = {"aktiv": False, "historie": "", "del": 0}
+        self.save()
+
+    # --- Skjaldens egen identitet ---
+    def set_skjald(self, identitet):
+        self.data["skjald"] = identitet
+        self.save()
+
+    # --- Interaktiv saga over flere ture (herren styrer undervejs) ---
+    def saga_active(self):
+        return bool((self.data.get("saga") or {}).get("aktiv"))
+
+    def saga_begin(self, part):
+        self.data["saga"] = {"aktiv": True, "historie": part[:1500], "del": 1}
+        self.save()
+
+    def saga_advance(self, part):
+        s = self.data.get("saga") or {"aktiv": True, "historie": "", "del": 0}
+        s["historie"] = (s.get("historie", "") + "\n\n" + part)[-1500:]  # behold seneste narrativ
+        s["del"] = s.get("del", 0) + 1
+        s["aktiv"] = True
+        self.data["saga"] = s
+        self.save()
+
+    def saga_stop(self):
+        self.data["saga"] = {"aktiv": False, "historie": "", "del": 0}
         self.save()
 
     def context(self):

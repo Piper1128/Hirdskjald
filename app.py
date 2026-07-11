@@ -9,6 +9,7 @@ dig mellem sessioner i memory.json (lokalt, offline) — og lærer nyt om dig un
 """
 import argparse
 import os
+import random
 import re
 import sys
 
@@ -93,6 +94,32 @@ def nysamtale():
     return jsonify(ok=True)
 
 
+_RNG = random.Random()
+
+
+def _ensure_identity():
+    """Giv skjalden en fast identitet (navn/hjemstavn/forhistorie) hvis han ikke har en endnu.
+
+    Fast pr. samtale, huskes i memory.json — så DIN skjald er din. Skifter kun ved 'glem alt'.
+    """
+    if not mem.data.get("skjald"):
+        mem.set_skjald(persona.new_identity(_RNG))
+    persona.set_identity(mem.data["skjald"])
+
+
+# Interaktiv saga: start over flere ture + stop-ord der bryder ud af saga-tilstanden.
+_ISAGA_RE = re.compile(
+    r"saga (?:over|på|i) flere (?:ture|gange|dele|kapitler)|"
+    r"(?:fortløbende|interaktiv|sammenhængende) saga|saga vi (?:bygger|laver|digter) sammen|"
+    r"saga (?:jeg|vi) (?:kan )?styr|fortæl .{0,20}saga sammen|start en (?:fortløbende )?saga|"
+    r"en saga jeg kan (?:styre|påvirke|guide)",
+    re.IGNORECASE)
+_STOP_SAGA_RE = re.compile(
+    r"\bafslut\b|stop sagaen|slut(?:t)? sagaen|færdig med sagaen|luk sagaen|"
+    r"det er nok|ikke mere saga|\bhold op\b",
+    re.IGNORECASE)
+
+
 def _maybe_summarize():
     """Fold ældre ture ind i et kort, EKSTRAKTIVT resumé (herrens egne emner), så konteksten
     aldrig sprænger 4096. Ekstraktivt — ikke LLM-genereret — fordi en 7B hallucinerer resuméer
@@ -116,17 +143,45 @@ def chat():
     if not text:
         return jsonify(error="tom besked"), 400
 
+    _ensure_identity()  # skjalden bærer en fast identitet (navn/hjemstavn) gennem samtalen
+
     # --- Intent-styring: skjalden gør det du beder om ---
     if _FORGET_RE.search(text):
         mem.clear()
+        persona.set_identity(None)  # glem alt -> en ny skjald (nyt navn/hjemstavn) træder frem
         return jsonify(svar="Det er glemt, herre. Jeg kender dig ikke mere — sæt dig og fortæl på ny.")
 
     # Rører nogen ved rollen eller nutiden -> afvis I-ROLLE, uden grunding (kilder ville forvirre)
+    # --- Interaktiv saga i gang: herrens ord STYRER næste del (kun 'afslut sagaen' bryder ud) ---
+    if mem.saga_active():
+        if _STOP_SAGA_RE.search(text):
+            msgs = persona.saga_end_messages(mem.data["saga"]["historie"], mem.context())
+            svar = skald.reply(msgs, max_new_tokens=560, temperature=0.8,
+                               seed="Og således fik sagaen sin ende. ")
+            mem.saga_stop()
+            mem.add_turn(text, svar)
+            return jsonify(svar=svar)
+        msgs = persona.saga_continue_messages(mem.data["saga"]["historie"], text, mem.context())
+        svar = skald.reply(msgs, max_new_tokens=520, temperature=0.85,
+                           seed="Og videre gik sagaen. ")
+        mem.saga_advance(svar)
+        mem.add_turn(text, svar)
+        return jsonify(svar=svar, saga=True)
+
     if _META_RE.search(text):
         msgs = persona.modern_deflect_messages(text, mem.context())
         svar = skald.reply(msgs, max_new_tokens=200, temperature=0.65, seed="Nej, herre — ")
         mem.add_turn(text, svar)
         return jsonify(svar=svar)
+
+    # --- Start en INTERAKTIV saga over flere ture (skjalden vælger optakt, du styrer siden) ---
+    if _ISAGA_RE.search(text):
+        msgs = persona.saga_start_messages(mem.context())
+        svar = skald.reply(msgs, max_new_tokens=520, temperature=0.85,
+                           seed="Hør, herre, en ny saga tager sin begyndelse. ")
+        mem.saga_begin(svar)
+        mem.add_turn(text, svar)
+        return jsonify(svar=svar, saga=True)
 
     saga_req = bool(_SAGA_RE.search(text))
 
@@ -172,7 +227,7 @@ def chat():
         msgs = persona.comfort_messages(text, mem.context(),
                                         mem.injected_history(), mem.data["resume"])
         # prefill tvinger skjalden ind i lore-sporet fremfor moderne trøst
-        svar = skald.reply(msgs, max_new_tokens=420, temperature=0.6,
+        svar = skald.reply(msgs, max_new_tokens=480, temperature=0.6,
                            seed="Hør et sagn, herre: ")
         mem.add_turn(text, svar)
         return jsonify(svar=svar)
@@ -193,7 +248,7 @@ def chat():
     else:
         msgs = persona.chat_messages(text, mem.context(), hist, mem.data["resume"])
     # stemme-lås: en kort skjald-åbning prefill'es, så svaret ikke falder i leksikon-tone
-    svar = skald.reply(msgs, max_new_tokens=384, temperature=0.7,
+    svar = skald.reply(msgs, max_new_tokens=512, temperature=0.7,
                        seed=persona.skald_opener(text))
     mem.add_turn(text, svar)
 
