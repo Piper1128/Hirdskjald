@@ -42,29 +42,3 @@ class Skald:
         gen = self.tok.decode(
             out[0][enc["input_ids"].shape[1]:], skip_special_tokens=True)
         return (seed + gen).strip()
-
-    @torch.no_grad()
-    def extract_facts(self, user_text):
-        """Fisk nye kendsgerninger om brugeren ud af hans besked (til hukommelsen).
-
-        Anti-hallucination: et udtrukket faktum accepteres kun hvis det er bygget af
-        brugerens EGNE ord — bringer det mange nye ord ind, er det lore modellen fandt
-        på, og vi kasserer det.
-        """
-        from .persona import extract_messages
-        raw = self.reply(extract_messages(user_text),
-                         max_new_tokens=100, temperature=0.15, top_p=0.9)
-
-        def content(s):
-            return {w.lower().strip(".,!?:;\"'()") for w in s.split() if len(w) > 3}
-
-        user_words = content(user_text)
-        facts = []
-        for line in raw.splitlines():
-            s = line.strip(" -•*·\t")
-            if not s or s.upper() == "INTET" or not (2 < len(s) < 160):
-                continue
-            new_words = content(s) - user_words
-            if len(new_words) <= 2:  # næsten kun brugerens egne ord -> ægte (lore afvises)
-                facts.append(s)
-        return facts
