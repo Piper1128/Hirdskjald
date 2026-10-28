@@ -1,0 +1,270 @@
+"""
+build_sft.py — byg data/sft_faner.jsonl: SFT-eksempler i de to fanes køretidsformat.
+
+    python scripts/build_sft.py            # -> data/sft_faner.jsonl
+
+Rediger eksemplerne HER og kør scriptet; jsonl-filen er output. Overleveringerne
+(passages) er egne genfortællinger af Edda-/saga-stof, ikke tekst fra Wikipedia.
+Hver række bliver til en prompt via skald/sft.py, som bruger samme persona.*_request
+og fmt.encode_prompt som app.py — se tests/test_sft_format.py.
+"""
+import json
+import sys
+
+import os
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+from skald.knowledge import medieval_source  # noqa: E402  (same mapping app.py uses)
+
+ID = [
+    {"navn": "Brage", "hjemstavn": "Vestfold", "historie": "Du lærte kvadets kunst af en gammel skjald ved kongens hal, og dit minde rummer hundrede sagaer."},
+    {"navn": "Ottar", "hjemstavn": "Trøndelag", "historie": "Du sejlede i din ungdom med vikinger mod vest, og de syn blev til kvad på din tunge."},
+    {"navn": "Sighvat", "hjemstavn": "Island", "historie": "Din slægt har tjent jarler i syv slægtled som skjalde; kvadet er dit arvegods."},
+    {"navn": "Gunnlaug", "hjemstavn": "Jylland", "historie": "En vølve spåede ved din fødsel, at din stemme skulle bære helte-minder gennem tiden."},
+    {"navn": "Eyvind", "hjemstavn": "Hålogaland", "historie": "Du overlevede et forlis og svor at gengælde guderne med et kvad for hver dag du fik."},
+]
+EDDA = "Snorris Edda og den Poetiske Edda"
+rows = []
+
+
+def grundet(i, emne, kilde, passages, svar):
+    assert kilde == medieval_source(emne), (emne, kilde, medieval_source(emne))
+    assert len(passages) <= 3, emne  # app.py sends at most 3 chunks of the primary title
+    rows.append({"fane": "grundet_saga", "identitet": ID[i % len(ID)], "emne": emne, "kilde": kilde,
+                 "passages": [{"title": emne, "text": t} for t in passages], "svar": svar})
+
+
+def saga(i, emne, svar):
+    rows.append({"fane": "saga", "identitet": ID[i % len(ID)], "emne": emne, "svar": svar})
+
+
+def din(i, navn, svar, foerste, alle_bedrifter=None, nye_bedrifter=None, nye_noter=None, story=""):
+    rows.append({"fane": "din_saga", "identitet": ID[i % len(ID)], "navn": navn, "story": story,
+                 "nye_bedrifter": nye_bedrifter or [], "nye_noter": nye_noter or [],
+                 "foerste": foerste, "alle_bedrifter": alle_bedrifter or [], "svar": svar})
+    rows[-1]["story"] = story[-1200:]  # app.py: "\n\n".join(kapitler)[-1200:]
+
+
+# ---------------- Saga-fortælling, grundet i overleveringer ----------------
+grundet(0, "Odin", EDDA, [
+    "Odin er asernes høvding og kaldes Alfader. Han gav sit ene øje i pant ved Mimers brønd under Yggdrasils rod for at få en slurk af visdommens vand.",
+    "I Håvamål fortæller Odin selv, at han hang ni nætter på det vindblæste træ, såret af spyd og givet til sig selv, uden mad og drikke, til han greb runerne og faldt ned.",
+    "To ravne, Hugin og Munin, flyver hver morgen ud over verden og vender tilbage for at hviske ham alt i øret. Han rider på den ottebenede hest Sleipner.",
+], """Ved verdenstræets rod, hvor Mimers brønd ligger dyb og stille, stod Alfader en gang og tørstede efter mere end mjød. Han tørstede efter visdom. Mimer vogtede vandet og gav intet bort for intet, så Odin rev sit eget øje ud og lagde det i brønden som pant. Da drak han, og fra den dag så han med ét øje mere end andre ser med to.
+
+Men visdom fra brønden var ikke nok for ham. Han lod sig hænge i Yggdrasil, såret af sit eget spyd, givet til sig selv. Ni nætter hang han i vinden. Ingen bragte ham brød, ingen bragte ham horn. Han stirrede ned i dybet, til runerne lå der under ham, og han greb dem med et skrig og faldt.
+
+Siden har han vidst hvad runerne kan: hele sår, døve sværd, binde storm og løse lænker. Hver morgen sender han Hugin og Munin ud over Midgård, og hver aften sidder de på hans skuldre og hvisker hvad de har set. Han frygter mest for Munin, at den en dag ikke skal komme hjem.
+
+Når han rider ud, bærer Sleipner ham på otte ben over hav og himmel. Han er ikke en mild gud. Han giver sejr og tager den igen, og han samler de faldne, fordi han ved hvad der kommer til sidst.
+
+Så meget gav Alfader for at vide: et øje, ni nætter og sit eget blod. Den der vil være vis, skal betale med det han helst ville beholde.""")
+
+grundet(1, "Tyr (gud)", EDDA, [
+    "Aserne opfostrede Fenrisulven, Lokes søn, men den voksede så hurtigt og blev så farlig at kun Tyr turde fodre den.",
+    "To lænker, Løding og Drome, sprængte ulven. Dværgene smedede så Gleipner af kattens fodtrin, kvindens skæg, bjergets rødder, bjørnens sener, fiskens ånde og fuglens spyt.",
+    "Ulven ville kun lade sig binde hvis en af aserne lagde sin hånd i dens gab som pant. Tyr gjorde det, og da båndet holdt, bed ulven hans hånd af ved håndleddet.",
+], """Lokes søn, ulven Fenrer, voksede op blandt aserne. Hver dag var han større, og hver dag var hans øjne mere sultne. Til sidst var der kun én af guderne der turde gå hen til ham med kødet, og det var Tyr, den modige.
+
+Guderne vidste at ulven ville bringe dem ulykke, så de ville binde ham. Først kom de med lænken Løding og kaldte det en leg. Fenrer strakte sig, og lænken sprang. Så kom de med Drome, dobbelt så stærk. Han rystede sig, og den faldt i stykker. Siden siger man at slippe af Løding og drage af Drome.
+
+Da sendte Alfader bud til dværgene, og de smedede Gleipner af ting der ikke findes: kattens trin, kvindens skæg, bjergets rødder, bjørnens sener, fiskens ånde og fuglens spyt. Båndet var blødt som et silkebånd.
+
+Fenrer så på det og anede svig. "Lad én af jer lægge sin hånd i mit gab," sagde han, "så skal jeg lade mig binde." Aserne så på hinanden, og ingen ville. Da trådte Tyr frem og lagde sin højre hånd mellem ulvens tænder.
+
+Båndet strammedes, og jo mere Fenrer sled, desto hårdere sad det. Alle aserne lo, undtagen Tyr. Han mistede sin hånd ved håndleddet. Siden kaldes han den enhåndede, og ingen kalder ham en forligsmand. Men ulven ligger bundet til Ragnarok, fordi én gud holdt sit ord og betalte for det.""")
+
+grundet(2, "Ragnarok", EDDA, [
+    "Før enden kommer Fimbulvinteren: tre vintre i træk uden sommer imellem, og brødre slår hinanden ihjel for vindings skyld.",
+    "Fenrisulven slipper løs og sluger Odin. Vidar, Odins søn, hævner ham ved at træde på ulvens underkæbe og rive gabet itu.",
+    "Thor dræber Midgårdsormen, men går ni skridt fra den og falder død af dens gift. Surt slynger ild over hele verden. Bagefter stiger en ny, grøn jord op af havet. Balder vender tilbage fra Hel, og nogle af guderne sætter sig sammen på Idavold.",
+], """Først kommer vinteren der ikke vil slippe. Tre vintre i træk, og ingen sommer imellem. Sneen fyger fra alle verdenshjørner, solen giver ingen varme, og brødre slår hinanden ihjel for guld. Det er Fimbulvinteren, og den er varslet om alt det der skal komme.
+
+Så ryster Yggdrasil. Alle bånd brister. Fenrer slipper løs med gabet så vidt at overkæben rører himlen og underkæben jorden. Midgårdsormen vælter sig op af havet og spyr gift over luft og vand. Heimdal blæser i Gjallarhornet, og aserne og einherjerne rider ud på Vigrids slette.
+
+Odin rider forrest mod ulven, og ulven sluger ham. Da kommer Vidar, hans tavse søn. Han sætter sin fod på ulvens underkæbe, griber overkæben og river gabet itu, og så er Alfader hævnet.
+
+Thor møder ormen som han har mødt før. Han slår den ihjel med Mjølner, men han går kun ni skridt fra den, så falder han død om af dens gift. Til sidst slynger Surt ild over hele verden, og alt brænder.
+
+Men det er ikke enden. En ny jord stiger grøn op af havet, og der vokser korn hvor ingen har sået. Balder vender hjem fra Hel, og de guder der overlevede, sætter sig på Idavold og finder de gyldne tavl i græsset, som de engang spillede med. Sådan går verden under, og sådan begynder den igen.""")
+
+grundet(3, "Balder", EDDA, [
+    "Balder drømte tunge drømme om sin død. Frigg tog derfor ed af alle ting, ild og vand, sten og træer, sygdomme og dyr, at de ikke ville skade ham. Kun mistelteinen syntes hun var for ung til at tage ed af.",
+    "Aserne morede sig med at kaste og hugge efter Balder, for intet skadede ham. Loke skar en mistelten og gav den til den blinde Hød, som kastede den, og Balder faldt død.",
+    "Hermod red på Sleipner til Hel for at bede om Balder tilbage. Hel ville give ham fri, hvis alt i verden græd over ham. Alt græd, undtagen jættekvinden Tøk, og man tror det var Loke.",
+], """Balder var den bedste af aserne, og alle der så ham, holdt af ham. Men han drømte onde drømme om sin egen død, og da han fortalte dem, blev aserne tunge om hjertet.
+
+Frigg, hans mor, drog ud og tog ed af alle ting at de ikke måtte skade ham. Ilden svor og vandet svor, jernet og stenene, træerne, sygdommene og de giftige orme. Kun en lille kvist vest for Valhal, mistelteinen, syntes hun var for ung til at sværge, og den lod hun være.
+
+Siden blev det asernes leg at stille Balder i midten og kaste på ham med spyd og sten, for intet bed på ham. Men Loke tog skikkelse af en kone og listede sig til at vide hvad Frigg havde sparet. Han skar mistelteinen og gik hen til Hød, Balders blinde bror. "Vis også du ham ære," sagde han og styrede hans hånd. Hød kastede, og kvisten gik gennem Balder, og han faldt død.
+
+Ingen kunne tale for gråd. Hermod red på Sleipner ni nætter gennem mørke dale til Hel og bad for sin bror. Hel svarede: "Græder alt i verden over ham, levende og døde, så skal han komme hjem."
+
+Alt græd. Sten og metal, træer og dyr. Men i en hule sad jættekvinden Tøk, og hun sagde at hun ville græde tørre tårer. Lad Hel beholde hvad hun har. Man tror det var Loke selv. Så blev Balder hos Hel til verdens ende.""")
+
+grundet(4, "Mjølner", EDDA, [
+    "I Trymskvida vågner Thor og opdager at hans hammer er væk. Jætten Trym har stjålet den og gemt den otte mil under jorden, og han vil kun give den tilbage hvis han får Freja til hustru.",
+    "Freja nægter vredt. Heimdal råder Thor til selv at klæde sig ud som brud med Brisingamen om halsen, og Loke tager med som brudepige.",
+    "Ved brylluppet spiser bruden en okse og otte laks og drikker tre tønder mjød. Loke forklarer at Freja ikke har spist i otte nætter af længsel. Da hammeren lægges i brudens skød for at vie hende, griber Thor den og dræber Trym og hans slægt.",
+], """Thor vågnede en morgen og rakte ud efter sin hammer, og den var der ikke. Han rystede skægget og hans røde hår stod til vejrs, for uden Mjølner er Asgård uden værn.
+
+Loke lånte Frejas fjederham og fløj til Jotunheim. Der sad jætten Trym på en høj og flettede guldbånd til sine hunde. "Jeg har hammeren," sagde han, "gemt otte mil under jorden. Ingen får den, før jeg får Freja til brud."
+
+Freja blev så vred at hele asernes sal skælvede, og halssmykket Brisingamen sprang fra hende. Da sagde Heimdal: "Lad os klæde Thor som brud." Thor ville ikke, han ville kaldes kvindagtig, men Loke mindede ham om at jætterne snart ville bo i Asgård uden hammeren. Så fik Thor brudelin og nøgler ved bæltet, og Loke fulgte med som brudepige.
+
+Ved bordet spiste bruden en hel okse og otte laks og drak tre tønder mjød. Trym undrede sig. "Freja har ikke spist i otte nætter," sagde Loke, "så meget længtes hun efter Jotunheim." Trym løftede sløret for at kysse, og bruden havde øjne som ild. "Hun har ikke sovet i otte nætter," sagde Loke.
+
+Så lod Trym hammeren bære ind og lægge i brudens skød for at vie hende. Thor lo i sit hjerte. Han greb Mjølner, slog Trym ned og hele hans slægt med ham. Sådan fik Odins søn sin hammer igen.""")
+
+grundet(5, "Egil Skallagrimssons saga", "Egil Skallagrimssons saga (islandsk saga)", [
+    "Egil var søn af Skallagrim, der tog land ved Borg i Island. Han var stor, mørk og stridbar, og han kvad sit første vers som treårig.",
+    "Egils søn Bødvar druknede da hans skib forliste i Borgarfjorden. Egil red ud og fandt liget, lagde det i Skallagrims høj og lukkede sig så inde i sin lukkehvilke for at sulte sig ihjel.",
+    "Hans datter Torgerd kom og sagde at hun også ville dø. Hun fik ham til at tygge tang, så han blev tørstig og drak mælk, og så overtalte hun ham til at kvæde et mindekvad. Det blev Sonatorrek, og da kvadet var færdigt, rejste Egil sig og levede videre.",
+], """Ved Borg i Island boede Egil, Skallagrims søn. Han var stor og mørk, hård i hånden og hård i sindet. Han kvad vers før han kunne ride, og han var ikke en mand man skulle træde for nær.
+
+En høst rejste en storm sig i Borgarfjorden, og Bødvar, Egils søn, sejlede ud. Skibet gik ned, og alle mand druknede. Da Egil hørte det, red han ud langs stranden og fandt sin søn, hvor havet havde lagt ham. Han tog ham op foran sig på hesten og bar ham til Skallagrims høj og lagde ham hos sin far.
+
+Så gik Egil hjem, lagde sig i sin lukkehvilke og skød slåen for. Han spiste intet og drak intet. Han ville dø, som hans søn var død.
+
+Da kom Torgerd, hans datter. "Jeg vil ikke leve længere end du, far," sagde hun og lagde sig ved siden af ham. Hun tyggede på noget, og Egil spurgte hvad det var. "Tang," sagde hun. Han tyggede også, og tangen gjorde ham tørstig, og hun gav ham at drikke, og det var mælk. Da han havde drukket, var lysten til at dø svækket.
+
+"Kvæd et kvad over Bødvar," sagde hun, "så vil jeg skære det i runer, og så kan vi dø bagefter." Egil begyndte at kvæde. Det var tungt i starten, men ordene kom. Det blev Sonatorrek, kvadet om sønnernes tab. Da det var færdigt, rejste Egil sig, og han levede mange år endnu. Sådan kan et kvad bære en mand tilbage fra graven.""")
+
+grundet(6, "Ymer", EDDA, [
+    "I begyndelsen var Ginnungagap, det gabende tomrum, med Niflheims is mod nord og Muspelheims ild mod syd. Hvor varmen mødte rimen, dryppede det, og af dråberne blev jætten Ymer til.",
+    "Koen Audhumla blev også til af rimen, og Ymer drak af hendes mælk. Hun slikkede de salte sten, og af stenen kom Bure frem, far til Bor, som blev far til Odin, Vile og Ve.",
+    "Bors sønner dræbte Ymer. Af hans kød skabte de jorden, af hans blod havet, af hans knogler bjergene, af hans kranie himlen og af hans hjerne skyerne.",
+], """I tidernes morgen var der intet sand og intet hav, ingen jord og ingen himmel. Der var kun Ginnungagap, det store gab. Mod nord lå Niflheim med is og rim, mod syd Muspelheim med glød og gnister.
+
+Hvor den varme luft mødte rimen, begyndte isen at dryppe. Af dråberne fik livet form, og der stod en jætte. Han hed Ymer, og af ham kom alle rimtusserne. Mens han sov, svedte han, og under hans venstre arm voksede en mand og en kvinde frem.
+
+Af den smeltende rim kom også koen Audhumla, og fra hendes yver løb fire floder af mælk, og dem levede Ymer af. Hun slikkede på de salte rimsten. Den første dag kom et hår frem, den anden et hoved, og den tredje dag stod en hel mand der. Han hed Bure, og hans sønnesønner var Odin, Vile og Ve.
+
+De tre brødre dræbte Ymer. Der løb så meget blod af ham at alle rimtusserne druknede, undtagen én med sin kone. Brødrene bar Ymer midt ud i Ginnungagap og gjorde verden af ham. Af hans kød blev jorden, af hans blod havet, af hans knogler fjeldene og af hans tænder stenene.
+
+Hans kranie løftede de op som himmel og satte en dværg ved hvert hjørne. Hans hjerne kastede de ud i luften, og den blev til skyer. Sådan står Midgård bygget af en jætte, og under vores fødder ligger hans kød endnu.""")
+
+grundet(7, "Loke", EDDA, [
+    "Efter Balders død flygtede Loke og skjulte sig som laks i Frånangers fos. Aserne fangede ham i et net, og Thor greb ham om halen.",
+    "Aserne bandt ham med tarmene af hans søn Narfe over tre klippestene. Skade hængte en giftslange op over hans ansigt.",
+    "Sigyn, Lokes hustru, står ved ham og holder en skål under giften. Når skålen er fuld og hun går for at tømme den, drypper giften på ham, og han vrider sig så jorden skælver. Det er jordskælv.",
+], """Da Balder var død og Tøk ikke ville græde, vidste aserne hvem der stod bag. Loke flygtede op i fjeldet og byggede et hus med fire døre, så han kunne se til alle sider. Om dagen skabte han sig om til en laks og gemte sig i Frånangers fos.
+
+Odin så fra Lidskjalv hvor han var. Aserne knyttede et net efter det mønster Loke selv havde lavet, og de drog det gennem fossen. To gange slap laksen, men den tredje gang sprang den over nettet, og Thor greb den i luften. Den gled i hans hånd, men han holdt den om halen. Derfor er laksen smal bagtil.
+
+De bar Loke ind i en hule og tog tre klippestene og stillede dem på højkant. Så tog de hans søn Narfe, og af hans tarme bandt de Loke over stenene, og båndene blev til jern. Skade hængte en giftslange op over hans ansigt, så giften skulle dryppe ned på ham.
+
+Men Sigyn, hans hustru, svigtede ham ikke. Hun står ved hans side og holder en skål under giften. Når skålen er fuld, må hun gå for at tømme den, og så drypper giften i hans ansigt. Da vrider han sig så voldsomt, at hele jorden skælver, og det kalder mennesker jordskælv.
+
+Der ligger Loke bundet til Ragnarok. Sådan endte den der kunne snyde alle, undtagen dem der kendte hans egne kneb.""")
+
+# ---------------- Saga-fortælling uden kilder ----------------
+saga(8, "en ung jarl der skulle vinde sit ry", """Der var en jarl i Møre, der hed Hallstein. Hans far var død ung, og bønderne sagde at sønnen hverken havde skæg eller ry. Hallstein hørte det og tav, men han glemte det ikke.
+
+Om foråret lod han sit skib tjære og kaldte mænd til sig. Kun tolv kom, for de fleste troede ikke på ham. Han tog dem med nordpå langs kysten, hvor en havkonge ved navn Gunnar Hvide plyndrede fiskerlejerne og brændte bådene.
+
+De mødtes i et sund i tåge. Gunnar havde tre skibe, Hallstein ét. Hallstein lod sine mænd ro ind under klipperne, hvor de store skibe ikke kunne vende, og så lagde han til bord med Gunnars eget skib. Kampen var hård. Hallstein fik et sår over panden, men han huggede Gunnars stavn-mand ned og råbte sit navn over vandet.
+
+Da Gunnar så sin mand falde, ville han flygte, men strømmen var imod ham, og han måtte overgive sig. Hallstein tog hans skibe og hans sølv, men lod ham leve mod at sværge ved Tor aldrig mere at sejle i Møre.
+
+Om høsten kom Hallstein hjem med fire skibe. Han delte sølvet med de tolv, og bønderne der havde talt mod ham, sendte nu deres sønner til hans hal. Siden sagde man i Møre at et skæg vokser langsomt, men ry kan vindes på én sommer.""")
+
+saga(9, "en smed og hans sværd", """I en dal i Uppland boede smeden Vølund-Bjørn, som han blev kaldt, fordi hans hænder var så kloge. Jarlen sendte bud efter ham og ville have et sværd der aldrig sprang.
+
+Bjørn tog jern fra mosen og smeltede det syv gange. Hver gang han smedede klingen, prøvede han den mod en sten, og hver gang den fik et hak, lagde han den i ilden igen. Hans kone sagde at han ville dø ved ambolten før sværdet var færdigt.
+
+Den syvende vinter lagde han klingen i bækken om natten og lod frosten tage den. Om morgenen var den blå som is. Han huggede i en jernbolt, og bolten faldt i to stykker, og klingen var uden mærke. Han kaldte sværdet Rimtand.
+
+Jarlen kom selv og ville betale med sølv. Men Bjørn sagde: "Et sværd der aldrig springer, bærer også et løfte. Den der bærer Rimtand, må aldrig hugge en mand der ligger." Jarlen lo, men han svor.
+
+Mange år senere stod jarlen over sin fjende, der var faldet i sneen. Han huskede eden og løftede ham op i stedet. Fjenden blev hans svoger og hans bedste ven. Da jarlen døde, lagde de Rimtand i højen hos ham uden et hak på æggen. Det sagde smeden var det eneste rigtige mål for et sværd.""")
+
+saga(10, "en vinter i Trøndelag", """Den vinter kom sneen tidligt i Trøndelag og blev liggende til langt ind i gøjmåned. Fjorden frøs til, så ingen båd kunne gå ud, og på gården Hov var der kun korn til halvdelen af tiden.
+
+Bonden Ulfar samlede sit folk i hallen. "Vi kan sulte sammen eller hente føde sammen," sagde han. Så gik han og hans to sønner ud på skier mod fjeldet efter rener, med bue og spyd og en sæk tørret fisk.
+
+Tre dage sporede de. Den fjerde dag kom stormen, og de gravede sig ned i sneen og lå der under deres kapper, mens vinden hylede som ulve. Den yngste søn ville give op, men Ulfar sang de gamle vers for ham, om Skade der løber på ski i fjeldet, til drengen sov.
+
+Da stormen lagde sig, stod en hel flok rener i dalen under dem. De fældede fire, og de slæbte kødet hjem på slæder, mens nordlyset flammede over dem.
+
+Den vinter sultede ingen på Hov. Om foråret ofrede Ulfar til Skade på fjeldet, og sønnerne skar et mærke i stenen, hvor de havde ligget i sneen. Det mærke står der endnu, siger man.""")
+
+saga(11, "to brødre og en blodhævn", """På en gård i Hordaland boede brødrene Torkel og Grim. De delte alt, ager og båd og ære. Men en dag ved tinget blev Torkel dræbt af Ørn fra Nabogården i et skænderi om en hest.
+
+Grim kom hjem med sin brors lig. Alle ventede at han ville tage hævn med det samme, men han satte sig ved ilden og tav. Hans mor kastede Torkels blodige kappe i hans skød. "Skal din bror ligge uhævnet?" sagde hun.
+
+Grim stod op. Han gik ikke til Ørns gård med våben, men til tinget. Han krævede bod efter loven, og tinget dømte Ørn til at betale tre hundrede sølv og at forlade bygden i tre vintre.
+
+Ørn betalte ikke. Han lo ad Grim og kaldte ham en mand der kæmpede med ord. Da tog Grim sin økse. Han kom til Ørns gård ved højlys dag, så alle kunne se at det ikke var mord, og han huggede Ørn ned i hans egen dør.
+
+Han gik selv til nabogården og sagde hvad han havde gjort. Han betalte bod for drabet, og de to slægter skiftedes til at holde gilde i mange år for at lægge det bag sig. Men hver vinter ved Torkels dødsdag sad Grim alene ved ilden. Hævn giver ære, sagde han, men den giver ikke en bror tilbage.""")
+
+# ---------------- Din saga ----------------
+k1 = """Karen var født ved Kattegats kyst, hvor vinden aldrig hviler og havet aldrig tier. Som pige lærte hun at læse skyerne og strømmen, og de gamle sagde at hun havde saltvand i blodet.
+
+En høst stod hun alene i sin båd, da stormen kom fra nord. Bølgerne rejste sig som jætter, og masten skreg. Hun bandt sig til rorkulten og holdt kursen mod land gennem hele natten. Da morgenen gryede, lå hun i læ under kysten med flænget sejl, og fiskerne på stranden kunne ikke tro at nogen var kommet over i den storm.
+
+Siden gik hun selv i skoven og fældede tømmer. Hun huggede bjælkerne til og rejste væggene med egne hænder, og under taget hængte hun det flængede sejl som et minde om natten på havet. Den der ser det hus, ved at her bor en kvinde der ikke venter på at andre gør hendes arbejde."""
+din(12, "Karen", k1, True, alle_bedrifter=["sejlede alene over Kattegat i storm", "byggede sit eget hus"])
+
+din(13, "Karen", """Det var midvinter, og isen lå tynd på fjorden. Børn fra bygden legede derude, og en hund løb efter dem. Med ét brast isen, og hunden forsvandt i det sorte vand.
+
+Karen så det fra sin dør. Hun greb et reb og en åre og løb ned. Hun lagde sig fladt på isen og kravlede ud mod hullet, mens isen knagede under hende. Hunden kæmpede i vandet med kløerne mod kanten. Hun fik åren ind under dens bryst og trak, og den kom op på isen, våd og rystende.
+
+Hun bar den hjem i sin kappe og tørrede den ved ilden. Børnene fortalte det i hele bygden, og siden fulgte hunden Karen overalt, til strand og skov, som en trofast hirdmand følger sin herre.""",
+    False, alle_bedrifter=["sejlede alene over Kattegat i storm", "byggede sit eget hus", "reddede en hund fra isen"],
+    nye_bedrifter=["reddede en hund fra isen"], story="Hør, herre! Her tager Karens saga sin begyndelse. " + k1)
+
+k2 = """Søren var en mand af ild og jern. Hver dag stod han ved sin esse i larmen fra hammer og belg, og hans hænder kendte metallet som en skjald kender ordene. Det sagdes at intet hjul og ingen lænke kunne gå i stykker, uden at Søren kunne få den hel igen.
+
+En sommer satte han sig for at løbe fra Roskilde til Køge uden at hvile. Han løb gennem skov og over mark, og da solen stod højt, mærkede han benene som bly. Men han tænkte på Tjalfe, Tors løber, der kappedes med tanken selv, og han løb videre. Ved aftenstid nåede han Køge, og han drak et horn af kildevand og lo.
+
+Den vinter fødte hans hustru ham to døtre, den ene efter den anden. Søren tog dem op i sine sorte hænder og løftede dem mod ilden, og han svor at de skulle få et hjem så stærkt som det jern han smedede."""
+din(14, "Søren", k2, True, alle_bedrifter=["løb fra Roskilde til Køge uden at hvile", "blev far til to døtre"],
+    nye_noter=["Han arbejder med maskiner hele dagen"])
+
+din(15, "Søren", """Da døtrene var blevet store nok til at gå, læssede Søren sin ambolt og sit værktøj på en vogn og drog over Bæltet til Fyn. Der var jord at få, sagde man, og bønder der manglede en smed.
+
+Han byggede sin esse ved en bæk under en høj klippe. Om aftenen stod døtrene og så op ad klippen, og den ældste spurgte om man kunne se havet fra toppen. Søren var altid blevet svimmel blot han stod på et tag. Men han tog hendes hånd og begyndte at klatre.
+
+Han klatrede med blikket fast på stenen og ikke på dybet, greb om hver kant som om den var glødende jern. Da han nåede toppen, rystede hans knæ, men han løftede datteren op, og hun så havet ligge sølvblankt i aftensolen. Det var en større dåd for Søren end løbet til Køge, for den dag sejrede han over den frygt der var hans egen.""",
+    False, alle_bedrifter=["løb fra Roskilde til Køge uden at hvile", "blev far til to døtre", "flyttede til Fyn"],
+    nye_bedrifter=["flyttede til Fyn"], nye_noter=["Han er bange for højder, men klatrede op ad en høj klippe"],
+    story="Hør, herre! Her tager Sørens saga sin begyndelse. " + k2)
+
+k3 = """Mette voksede op hvor marsken møder havet, og hun elskede havet som andre elsker guld. Hun gik langs stranden i al slags vejr og samlede rav, og hun kunne sidde time efter time og lytte til bølgerne, som om Ran selv talte til hende.
+
+Men en vinter blev hendes mor syg. Feberen kom med det første frost og ville ikke gå. Mette sad ved hendes leje nat efter nat. Hun kogte urter og bar vand og holdt ilden ved lige, mens stormen rev i taget. Når hun selv var ved at segne, gik hun ned til havet et kort øjeblik og vendte tilbage med ny styrke.
+
+Først da lærken sang over marsken, stod moren op igen. Hun tog Mettes hånd og sagde at ingen datter havde gjort mere. Bygdens folk sagde det samme, for en lang vinter ved et sygeleje kræver mere mod end en dag i skjoldborgen."""
+din(16, "Mette", k3, True, alle_bedrifter=["passede sin syge mor gennem en lang vinter"], nye_noter=["Hun elsker havet"])
+
+din(17, "Mette", """Da moren var rask, kom der bud om arbejde i en by langt mod syd, hvor købmændene samledes og skibene lå tæt ved bryggerne. Mette havde aldrig været så langt fra marsken. Hun pakkede sin kiste og sit rav og tog afsked ved stranden.
+
+I den fremmede by kendte ingen hendes navn. Folk talte hurtigt, og gaderne var trange. Den første tid gik hun ned til havnen hver aften for at se vandet, og det gav hende ro. Snart lærte hun handelens sprog, vægtene og målene, og købmændene begyndte at spørge efter hende, fordi hun var ærlig og vidste hvad tingene var værd.
+
+Før året var omme, havde Mette sin egen plads ved bryggen, hvor hun handlede med rav fra sit hjemland. Hun havde fundet et andet hav at stå ved, og hun var ikke længere en fremmed.""",
+    False, alle_bedrifter=["passede sin syge mor gennem en lang vinter"],
+    nye_noter=["Hun fik et nyt arbejde i en fremmed by"], story="Hør, herre! Her tager Mettes saga sin begyndelse. " + k3)
+
+k4 = """Jonas var en mand der tænkte før han huggede. Hvor andre greb til sværdet, satte han sig over tavlbrættet, og han kunne sidde en hel aften og se på de små brikker, som om han så slaget selv for sig.
+
+Ved midvintergildet blev der spillet tavl om et sølvhorn. Mænd fra hele bygden satte sig til brættet, gamle krigere og listige bønder. Jonas slog dem én efter én. Den sidste var en gammel jarlemand, der havde spillet i halvtreds vintre, og spillet varede til hanerne galede. Til sidst lukkede Jonas hans konge inde, og hallen brød ud i jubel.
+
+Jarlemanden rejste sig og gav ham hånden. "Den der kan styre et slag på brættet, kan også styre et slag på marken," sagde han. Men Jonas drak af sølvhornet og svarede at han helst ville vinde sine slag uden blod."""
+din(18, "Jonas", k4, True, alle_bedrifter=["vandt en turnering i tavl"])
+
+din(19, "Jonas", """Da Jonas fik en søn, tog han ham med til søen så snart drengen kunne gå. Drengen var bange for vandet og græd, når bølgerne slog mod hans ben. Jonas skyndte sig ikke. Han satte sig på stranden og ventede, som han ventede over tavlbrættet.
+
+Dag for dag gik de lidt længere ud. Jonas holdt ham under brystet og lærte ham at sparke og at trække vejret i takt med armene. En sommerdag slap han ham, og drengen svømmede alene tre tag og så tre mere, og da han kom op, råbte han så det gav ekko fra skoven.
+
+Om aftenen fortalte Jonas sin hustru at det var en større sejr end sølvhornet, for den sejr ville drengen bære med sig hele livet.""",
+    False, alle_bedrifter=["vandt en turnering i tavl", "lærte sin søn at svømme"],
+    nye_bedrifter=["lærte sin søn at svømme"], story="Hør, herre! Her tager Jonass saga sin begyndelse. " + k4)
+
+out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "data", "sft_faner.jsonl")
+with open(out, "w", encoding="utf-8") as f:
+    for r in rows:
+        f.write(json.dumps(r, ensure_ascii=False) + "\n")
+print(len(rows), "rows ->", out)
