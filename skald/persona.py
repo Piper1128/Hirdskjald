@@ -169,3 +169,28 @@ def din_saga_chapter_messages(navn, story, nye_bedrifter, nye_noter, foerste=Fal
     msgs.extend(_ANCHOR)
     msgs.append({"role": "user", "content": bid})
     return msgs
+
+
+# =============================== Fælles anmodninger ===============================
+# Hver anmodning = (beskeder, prefill-seed). app.py OG finetune (via skald/sft.py) bruger
+# præcis disse, så adapteren trænes på samme ramme som den møder i køretid.
+
+def saga_request(emne, memory_context=""):
+    """Saga-fortælling uden RAG-kilder."""
+    return (saga_messages(emne, memory_context),
+            f"Hør nu, herre — hør sagaen om {emne}: ")
+
+
+def grounded_saga_request(emne, passages, kilde="", memory_context=""):
+    """Saga-fortælling grundet i hentede overleveringer; seed nævner skriftet."""
+    return (grounded_saga_messages(emne, passages, kilde, memory_context),
+            f"Hør nu, herre — jeg kvæder sagaen om {emne}, som den kendes fra {kilde}: ")
+
+
+def din_saga_request(navn, story, nye_bedrifter, nye_noter, foerste=False, alle_bedrifter=None):
+    """Næste (eller første) kapitel af herrens egen saga."""
+    msgs = din_saga_chapter_messages(navn, story, nye_bedrifter, nye_noter, foerste, alle_bedrifter)
+    seed = (f"Hør, herre! Her tager {navn}s saga sin begyndelse. " if foerste
+            else f"Og videre gik {navn}s saga. ")
+    return msgs, seed
+

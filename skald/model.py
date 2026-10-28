@@ -10,6 +10,7 @@ try:
 except ImportError:
     PeftModel = None
 
+from .fmt import encode_prompt
 from .persona import BASE_MODEL
 
 
@@ -30,10 +31,10 @@ class Skald:
 
     @torch.no_grad()
     def reply(self, messages, max_new_tokens=320, temperature=0.75, top_p=0.9, seed=""):
-        text = self.tok.apply_chat_template(
-            messages, add_generation_prompt=True, tokenize=False)
-        text = text + seed  # 'prefill': tvinger svarets begyndelse -> låser stemme/spor
-        enc = self.tok(text, return_tensors="pt").to(self.device)
+        # 'prefill': seed'et lægges efter generation-prompten og tvinger svarets begyndelse
+        # -> låser stemme/spor. Samme encode_prompt som finetune bruger (skald/sft.py).
+        ids = torch.tensor([encode_prompt(self.tok, messages, seed)], device=self.device)
+        enc = {"input_ids": ids, "attention_mask": torch.ones_like(ids)}
         out = self.model.generate(
             **enc, max_new_tokens=max_new_tokens, do_sample=True,
             temperature=temperature, top_p=top_p, repetition_penalty=1.1,

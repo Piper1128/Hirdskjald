@@ -70,17 +70,14 @@ def _tell_saga(query):
     """Hent den bedst matchende ÆGTE saga fra viden-basen og kvæd den — grundet + annonceret."""
     passages = knowledge.retrieve(query, k=4) if knowledge else []
     if not passages:
-        msgs = persona.saga_messages(query)
-        svar = skald.reply(msgs, max_new_tokens=900, temperature=0.8,
-                           seed=f"Hør nu, herre — hør sagaen om {query}: ")
+        msgs, seed = persona.saga_request(query)
+        svar = skald.reply(msgs, max_new_tokens=900, temperature=0.8, seed=seed)
         return jsonify(svar=svar)
     primary = passages[0][1]["title"]
     skrift = medieval_source(primary)
     chunks = [c for _, c in passages if c["title"] == primary][:3] or [passages[0][1]]
-    msgs = persona.grounded_saga_messages(primary, chunks, skrift)
-    svar = skald.reply(
-        msgs, max_new_tokens=900, temperature=0.8,
-        seed=f"Hør nu, herre — jeg kvæder sagaen om {primary}, som den kendes fra {skrift}: ")
+    msgs, seed = persona.grounded_saga_request(primary, chunks, skrift)
+    svar = skald.reply(msgs, max_new_tokens=900, temperature=0.8, seed=seed)
     return jsonify(svar=svar, skrift=skrift, kilder=[primary])
 
 
@@ -162,10 +159,8 @@ def dinsaga():
                                 "så kan jeg kvæde.")
         foerste = not ms["kapitler"]
         story = "\n\n".join(ms["kapitler"])[-1200:]  # kort "sagaen indtil nu" til sammenhæng
-        msgs = persona.din_saga_chapter_messages(
+        msgs, seed = persona.din_saga_request(
             navn, story, nye_bedrifter, nye_noter, foerste, mem.data["bedrifter"])
-        seed = (f"Hør, herre! Her tager {navn}s saga sin begyndelse. " if foerste
-                else f"Og videre gik {navn}s saga. ")
         kapitel = skald.reply(msgs, max_new_tokens=460, temperature=0.8, seed=seed)
         mem.min_saga_add(kapitel)
         return jsonify(kapitel=kapitel, kapitler=mem.data["min_saga"]["kapitler"], titel=_titel())
