@@ -39,11 +39,18 @@ python app.py            # åbner selv http://127.0.0.1:5000 i browseren
 Første start henter SnakModel-7B (~14 GB). Derefter kører alt offline. Kræver en
 CUDA-GPU (udviklet på RTX 3080, 10 GB — modellen fylder kun ~4 GB VRAM i 4-bit).
 
-**Valgfrit finpuds** (LoRA-lås af persona):
+**Valgfrit finpuds** (QLoRA: LoRA-adaptere oven på den frosne 4-bit-base):
 ```bash
+python scripts/build_sft.py           # -> data/sft_faner.jsonl (20 eksempler)
 python finetune.py --epochs 3 --out adapter
 python app.py --adapter adapter
 ```
+Eksemplerne er i præcis det format de to faner sender: samme system-prompt med identitet,
+samme anker-vekslinger, samme saga-/kapitel-bid og samme prefill-seed. Tab beregnes kun på
+det skjalden selv skriver efter seed'et. Ret eksemplerne i `scripts/build_sft.py`, ikke i
+jsonl-filen. `pytest` tjekker at træningsprompten er den samme som køretidens
+(`tests/test_sft_format.py`, kører uden GPU). Der er endnu ikke trænet en adapter på dette
+sæt, så effekten er ikke målt.
 
 ## Viden (RAG) — så han svarer korrekt, ikke bare stemningsfuldt
 
@@ -74,15 +81,19 @@ Hirdskjald/
 ├── app.py                 # Flask-server + web-UI
 ├── skald/
 │   ├── model.py           # SnakModel-7B i 4-bit (+ valgfri LoRA), generering
-│   ├── persona.py         # system-prompt, persona-anker + prompt-byggere
+│   ├── persona.py         # system-prompt, persona-anker, prompt-byggere + *_request (beskeder, seed)
+│   ├── fmt.py             # encode_prompt: én vej fra beskeder+seed til token-id'er
+│   ├── sft.py             # SFT-række -> (input_ids, labels) via samme veje som app.py
 │   ├── memory.py          # lokal JSON-hukommelse (identitet, navn, bedrifter, kapitler)
 │   ├── knowledge.py       # opslag i viden-basen (semantisk + BM25-fallback)
 │   └── embeddings.py      # lille flersproget e5-embedder (dense retrieval)
 ├── templates/index.html   # UI (Saga-fortælling / Din saga)
 ├── scripts/
-│   └── fetch_knowledge.py # hent dansk viden-base (Wikipedia) -> data/knowledge.jsonl
+│   ├── fetch_knowledge.py # hent dansk viden-base (Wikipedia) -> data/knowledge.jsonl
+│   └── build_sft.py       # byg SFT-eksemplerne -> data/sft_faner.jsonl
 ├── finetune.py            # valgfrit 4-bit QLoRA-finpuds
-└── data/skald_sft.jsonl   # skjald-SFT-par (til finpuds)
+├── tests/test_sft_format.py  # træningsprompt == køretidsprompt
+└── data/sft_faner.jsonl   # SFT-eksempler i fanernes format (output af build_sft.py)
 ```
 
 ## Licens
