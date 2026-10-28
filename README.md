@@ -1,7 +1,7 @@
 # Hirdskjald
 
 **Din personlige vikinge-skjald — kørende helt lokalt på din egen GPU.** En dansk
-skjald du kan tale med, som kvæder sagaer, husker dig, og digter din *egen* saga ud
+skjald som kvæder sagaer, husker dig, og digter din *egen* saga ud
 af dine bedrifter. Intet internet efter modellen er hentet.
 
 Hjernen er [SnakModel-7B-Instruct](https://huggingface.co/NLPnorth/snakmodel-7b-instruct)
@@ -12,19 +12,18 @@ Hjernen er [SnakModel-7B-Instruct](https://huggingface.co/NLPnorth/snakmodel-7b-
 > LoRA-finetuner en lille model til skjald-persona; **Hirdskjald** samler oplevelsen til
 > ét program på en dansk-stærk 7B — med hukommelse og din-egen-saga.
 
-## Ét vindue — sig hvad du vil
+## To faner
 
-Ingen faner: du styrer alt gennem samtalen (ligesom en rigtig assistent), og skjalden
-forstår hvad du beder om:
-- **Snak / spørg** — samtale om guder og sagaer, grundet i rigtige kilder
-- **"Fortæl en saga om Ragnarok"** — han anmelder sagaen og viser fra hvilket skrift den er (Edda/saga)
-- **Del din dag** — "jeg har haft en møgdag" (eller en god en) → han møder din stemning med et passende sagn eller vers
-- **"Digt en saga om mig"** — din egen saga ud fra det han ved om dig
-- **"Lav en saga af vores samtale"** — hele jeres snak vævet til ét kvad
-- **"Glem alt om mig"** — nulstiller hukommelsen
+- **Saga-fortælling** — bed om en saga. Nævner du et emne ("fortæl en saga om Ragnarok"),
+  kvæder han den med det samme; ellers stiller han ét til to faste, sokratiske spørgsmål
+  for at ringe den rigtige saga ind. Sagaen grundes i viden-basen (RAG), og han siger fra
+  hvilket skrift den er (Edda/saga). "Ny saga" eller "forfra" starter forfra.
+- **Din saga** — giv dit navn, dine bedrifter og fri tekst om dig selv. Han kvæder din egen
+  saga kapitel for kapitel og fletter de nye bedrifter ind hver gang. "Nulstil min saga"
+  sletter kapitlerne.
 
-Han **lærer om dig undervejs** (navn, bedrifter) og husker det lokalt i `memory.json`.
-Klikbare forslag i vinduet viser hvad han kan.
+Skjalden får én fast identitet (navn, hjemstavn, forhistorie) første gang, og den,
+dit navn, dine bedrifter og sagaens kapitler gemmes lokalt i `memory.json`.
 
 ## Kør det
 
@@ -50,7 +49,7 @@ python app.py --adapter adapter
 
 Hent en dansk viden-base om nordisk mytologi og sagaer (fra Wikipedia) én gang:
 ```bash
-python scripts/fetch_knowledge.py     # -> data/knowledge.jsonl (~50 artikler)
+python scripts/fetch_knowledge.py     # -> data/knowledge.jsonl (63 titler fra da.wikipedia.org)
 ```
 Så slår skjalden op i den **semantisk** med en lille flersproget embedding-model (e5,
 ~120 MB, kører på GPU'en; falder tilbage til BM25-nøgleord uden) og **grunder sine svar
@@ -76,10 +75,10 @@ Hirdskjald/
 ├── skald/
 │   ├── model.py           # SnakModel-7B i 4-bit (+ valgfri LoRA), generering
 │   ├── persona.py         # system-prompt, persona-anker + prompt-byggere
-│   ├── memory.py          # lokal JSON-hukommelse (navn, bedrifter, historik)
+│   ├── memory.py          # lokal JSON-hukommelse (identitet, navn, bedrifter, kapitler)
 │   ├── knowledge.py       # opslag i viden-basen (semantisk + BM25-fallback)
 │   └── embeddings.py      # lille flersproget e5-embedder (dense retrieval)
-├── templates/index.html   # UI (Snak / Fortæl / Min saga / Hukommelse)
+├── templates/index.html   # UI (Saga-fortælling / Din saga)
 ├── scripts/
 │   └── fetch_knowledge.py # hent dansk viden-base (Wikipedia) -> data/knowledge.jsonl
 ├── finetune.py            # valgfrit 4-bit QLoRA-finpuds
